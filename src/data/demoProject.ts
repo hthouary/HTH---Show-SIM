@@ -124,7 +124,7 @@ export function createDemoProject(): Project {
 
   // Drop 1 at ~30s — strobe + flames + confetti + magenta
   ev(28, 2, 'lights', 'light_color', { color: '#ffffff' });
-  ev(28, 2.2, 'lights', 'light_strobe', { rate: 16, color: '#ffffff' });
+  ev(28, 2.2, 'lights', 'light_strobe', { rate: 9, color: '#ffffff' });
   ev(30, 18, 'lights', 'light_color', { color: '#e64bd6' });
   ev(30, 18, 'lights', 'light_intensity', { intensity: 1.3 });
   ev(30, 18, 'lights', 'light_sweep', { amplitude: 2, speed: 1.1 });
@@ -145,7 +145,7 @@ export function createDemoProject(): Project {
 
   // Drop 2 at ~62s — full energy, amber + strobe + CO2
   ev(60, 2, 'lights', 'light_color', { color: '#ffffff' });
-  ev(60, 2, 'lights', 'light_strobe', { rate: 18, color: '#ffffff' });
+  ev(60, 2, 'lights', 'light_strobe', { rate: 10, color: '#ffffff' });
   ev(62, 16, 'lights', 'light_color', { color: '#ff7b1c' });
   ev(62, 16, 'lights', 'light_intensity', { intensity: 1.4 });
   ev(62, 16, 'lights', 'light_sweep', { amplitude: 2.2, speed: 1.3 });

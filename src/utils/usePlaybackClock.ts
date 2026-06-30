@@ -16,7 +16,8 @@ export function usePlaybackClock() {
     let last = performance.now();
 
     const tick = (now: number) => {
-      const dt = (now - last) / 1000;
+      // Clamp the delta so a dropped frame / tab stall can't jump the show.
+      const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
 
       const s = useShowStore.getState();

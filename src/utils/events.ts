@@ -157,12 +157,14 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       case 'light_strobe': {
         if (active) {
           const target = ensureOverride(state, ev.target);
-          const rate = num(ev.params, 'rate', 14);
-          const gate = Math.sin(t * rate * Math.PI * 2) > 0 ? 1 : 0;
+          const rate = num(ev.params, 'rate', 10);
+          // Pulse between a dim floor and full, rather than hard off/on, so the
+          // strobe reads as energetic without being harshly epileptic.
+          const gate = Math.sin(t * rate * Math.PI * 2) > 0 ? 1 : 0.2;
           target.strobe = gate;
           target.strobing = true;
           target.color = hexToRgb(str(ev.params, 'color', '#ffffff'));
-          target.intensity = Math.max(target.intensity ?? 1, 1.6);
+          target.intensity = Math.max(target.intensity ?? 1, 1.3);
         }
         break;
       }

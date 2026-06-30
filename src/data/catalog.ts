@@ -278,7 +278,7 @@ export function defaultEventParams(type: string): Record<string, unknown> {
     case 'light_intensity':
       return { intensity: 1 };
     case 'light_strobe':
-      return { rate: 14, color: '#ffffff' };
+      return { rate: 9, color: '#ffffff' };
     case 'light_sweep':
       return { amplitude: 1, speed: 0.6 };
     case 'laser_on':

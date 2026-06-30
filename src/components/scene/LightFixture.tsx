@@ -74,10 +74,10 @@ export function LightFixture({ object }: Props) {
       spotRef.current.intensity = eff * 16;
     }
 
-    // Volumetric beam — subtle shimmer in the haze.
-    const flicker = 0.9 + Math.sin(t * 11 + object.position[0] * 3) * 0.06 + Math.sin(t * 27) * 0.04;
+    // Volumetric beam — steady, with only a very slow, gentle breath (no flicker).
+    const breathe = 0.98 + Math.sin(t * 0.5 + object.position[0]) * 0.02;
     beamMat.uniforms.uColor.value.copy(tmpColor);
-    beamMat.uniforms.uOpacity.value = Math.min(0.85, eff * 0.5) * flicker;
+    beamMat.uniforms.uOpacity.value = Math.min(0.85, eff * 0.5) * breathe;
 
     // Glowing lens + camera-facing flare.
     if (lensRef.current) {

@@ -61,12 +61,13 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     tmpColor.setRGB(rgb[0], rgb[1], rgb[2]);
     const on = state.laser.active && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
-    const flick = 0.85 + Math.sin(clock.elapsedTime * 26) * 0.15;
+    // Steady beams, only a very slow shimmer (no high-frequency flicker).
+    const shimmer = 0.96 + Math.sin(clock.elapsedTime * 0.8) * 0.04;
 
     coreMat.color.copy(tmpColor);
-    coreMat.opacity = on ? Math.min(1, 0.95 * intensity * flick) : 0;
+    coreMat.opacity = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
     glowMat.color.copy(tmpColor);
-    glowMat.opacity = on ? 0.32 * intensity * flick : 0;
+    glowMat.opacity = on ? 0.32 * intensity * shimmer : 0;
     dotMat.color.copy(tmpColor);
     dotMat.opacity = on ? 1 : 0.12;
 

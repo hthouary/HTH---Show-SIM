@@ -26,7 +26,7 @@ export function StageScene() {
     if (ambientRef.current) ambientRef.current.intensity = 0.12 * black;
     if (flashRef.current) {
       const strobing = state.light.strobing ? state.light.strobe : 0;
-      flashRef.current.intensity = strobing * 6 * black;
+      flashRef.current.intensity = strobing * 2.4 * black;
       flashRef.current.color.setRGB(state.light.color[0], state.light.color[1], state.light.color[2]);
     }
   });
