@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { lightForObject } from '../../utils/events';
 import { useShowStateRef } from './ShowStateContext';
+import { makeBeamMaterial } from './beam';
+import { getGlowTexture } from './textures';
 
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
@@ -14,40 +16,43 @@ interface Props {
 
 /**
  * A light fixture (moving head / beam / strobe / blinder): a small body plus a
- * real SpotLight and an additive "volumetric" cone so the beam is visible in
- * the air. The fixture reads the live show-state each frame to drive its color,
- * intensity, strobe gate and sweep — pivoting from the lens like a real head.
+ * real SpotLight and a volumetric shader cone so the beam is visible in the air.
+ * The cone diverges with distance and fades into the atmosphere; the fixture
+ * reads the live show-state each frame for color, intensity, strobe and sweep.
  */
 export function LightFixture({ object }: Props) {
   const showRef = useShowStateRef();
   const swingRef = useRef<THREE.Group>(null);
   const spotRef = useRef<THREE.SpotLight>(null);
-  const coneMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const lensRef = useRef<THREE.MeshStandardMaterial>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const flareRef = useRef<THREE.Sprite>(null);
 
-  // Beam geometry — relative to the fixture, aimed at its target point.
-  const { baseQuat, length, coneGeo, targetObj } = useMemo(() => {
+  const glowTex = useMemo(() => getGlowTexture(), []);
+
+  // Beam geometry + material — relative to the fixture, aimed at its target.
+  const { baseQuat, throwLen, coneGeo, beamMat, targetObj, angleRad } = useMemo(() => {
     const rel = new THREE.Vector3(
       object.target[0] - object.position[0],
       object.target[1] - object.position[1],
       object.target[2] - object.position[2],
     );
-    const len = Math.max(rel.length(), 3);
+    const dist = Math.max(rel.length(), 4);
     const dir = rel.clone().normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(UP_DOWN, dir);
-    const angle = THREE.MathUtils.degToRad(Math.min(Math.max(object.beamAngle, 1), 60));
-    const radius = Math.tan(angle) * len;
-    // Cone: apex at local origin (the lens), opening downward to -Y * length.
-    const geo = new THREE.ConeGeometry(radius, len, 28, 1, true);
+    const ang = THREE.MathUtils.degToRad(Math.min(Math.max(object.beamAngle, 1), 60));
+    // Beams throw well past the target and dissolve into the air; the floor
+    // naturally occludes the part that dips below ground.
+    const len = THREE.MathUtils.clamp(dist * 2.2, 14, 34);
+    const radius = Math.tan(ang) * len; // divergence: wider the further it goes
+    const geo = new THREE.ConeGeometry(radius, len, 30, 1, true);
     geo.translate(0, -len / 2, 0);
+    const mat = makeBeamMaterial(len);
     const target = new THREE.Object3D();
-    target.position.set(0, -len, 0);
-    return { baseQuat: q, length: len, coneGeo: geo, targetObj: target };
+    target.position.set(0, -dist, 0);
+    return { baseQuat: q, throwLen: len, coneGeo: geo, beamMat: mat, targetObj: target, angleRad: ang };
   }, [object.position, object.target, object.beamAngle]);
 
-  // Attach the spotlight target once.
-  const attachedTarget = useRef(false);
+  const attached = useRef(false);
   useFrame(({ clock }) => {
     const state = showRef.current;
     const light = lightForObject(state, object.id);
@@ -56,52 +61,50 @@ export function LightFixture({ object }: Props) {
     const blackout = 1 - state.blackout;
     const strobeGate = light.strobing ? light.strobe : 1;
     const eff = object.intensity * light.intensity * strobeGate * blackout;
-
     tmpColor.setRGB(light.color[0], light.color[1], light.color[2]);
 
     // Real light hitting the stage.
     if (spotRef.current) {
-      if (!attachedTarget.current && swingRef.current) {
+      if (!attached.current && swingRef.current) {
         swingRef.current.add(targetObj);
         spotRef.current.target = targetObj;
-        attachedTarget.current = true;
+        attached.current = true;
       }
       spotRef.current.color.copy(tmpColor);
-      spotRef.current.intensity = eff * 14;
+      spotRef.current.intensity = eff * 16;
     }
 
-    // Visible beam volume.
-    if (coneMatRef.current) {
-      coneMatRef.current.color.copy(tmpColor);
-      const flicker = 0.92 + Math.sin(t * 30 + object.position[0]) * 0.04;
-      coneMatRef.current.opacity = Math.min(0.5, eff * 0.16) * flicker;
-    }
+    // Volumetric beam — subtle shimmer in the haze.
+    const flicker = 0.9 + Math.sin(t * 11 + object.position[0] * 3) * 0.06 + Math.sin(t * 27) * 0.04;
+    beamMat.uniforms.uColor.value.copy(tmpColor);
+    beamMat.uniforms.uOpacity.value = Math.min(0.85, eff * 0.5) * flicker;
 
-    // Glowing lens.
+    // Glowing lens + camera-facing flare.
     if (lensRef.current) {
       lensRef.current.color.copy(tmpColor);
       lensRef.current.emissive.copy(tmpColor);
-      lensRef.current.emissiveIntensity = Math.min(4, eff * 2.4);
+      lensRef.current.emissiveIntensity = Math.min(5, eff * 3);
     }
-    if (glowRef.current) {
-      const s = 0.18 + Math.min(0.5, eff * 0.3);
-      glowRef.current.scale.setScalar(s);
-      (glowRef.current.material as THREE.MeshBasicMaterial).color.copy(tmpColor);
-      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = Math.min(0.9, eff * 0.7);
+    if (flareRef.current) {
+      const mat = flareRef.current.material as THREE.SpriteMaterial;
+      mat.color.copy(tmpColor);
+      mat.opacity = Math.min(1, eff * 0.9);
+      const s = 0.5 + Math.min(1.4, eff * 1.1);
+      flareRef.current.scale.setScalar(s);
     }
 
-    // Sweep / idle sway — pivots from the lens.
+    // Sweep / idle sway — pivots from the lens like a real moving head.
     if (swingRef.current) {
       const sway = Math.sin(t * 0.8 + object.position[0]) * 0.05;
-      swingRef.current.rotation.z = light.sweep * 0.35 + sway;
-      swingRef.current.rotation.x = Math.sin(t * 0.5) * 0.04;
+      swingRef.current.rotation.z = light.sweep * 0.4 + sway;
+      swingRef.current.rotation.x = Math.sin(t * 0.5 + object.position[2]) * 0.05;
     }
   });
 
   return (
     <group>
       {/* Yoke / body */}
-      <mesh position={[0, 0.12, 0]} castShadow={false}>
+      <mesh position={[0, 0.12, 0]}>
         <boxGeometry args={[0.34, 0.16, 0.34]} />
         <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.4} />
       </mesh>
@@ -110,39 +113,36 @@ export function LightFixture({ object }: Props) {
         <meshStandardMaterial color="#0d0f15" metalness={0.7} roughness={0.35} />
       </mesh>
 
-      {/* Beam group aims toward the target; swing pivots from the lens. */}
+      {/* Beam group aims at the target; swing pivots from the lens. */}
       <group quaternion={baseQuat}>
         <group ref={swingRef}>
           {/* Lens */}
           <mesh position={[0, -0.02, 0]}>
-            <circleGeometry args={[0.14, 24]} />
+            <circleGeometry args={[0.13, 24]} />
             <meshStandardMaterial ref={lensRef} color="#ffffff" emissive="#ffffff" emissiveIntensity={1} side={THREE.DoubleSide} />
           </mesh>
-          {/* Soft glow sprite-ish sphere */}
-          <mesh ref={glowRef} position={[0, -0.02, 0]} scale={0.2}>
-            <sphereGeometry args={[1, 16, 16]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.6} blending={THREE.AdditiveBlending} depthWrite={false} />
-          </mesh>
-
-          {/* Volumetric beam cone */}
-          <mesh geometry={coneGeo}>
-            <meshBasicMaterial
-              ref={coneMatRef}
+          {/* Camera-facing lens flare */}
+          <sprite ref={flareRef} position={[0, -0.03, 0]} scale={0.6}>
+            <spriteMaterial
+              map={glowTex}
               color="#ffffff"
               transparent
-              opacity={0.15}
-              side={THREE.DoubleSide}
+              opacity={0.6}
               blending={THREE.AdditiveBlending}
               depthWrite={false}
+              depthTest={false}
             />
-          </mesh>
+          </sprite>
+
+          {/* Volumetric beam cone */}
+          <mesh geometry={coneGeo} material={beamMat} renderOrder={2} />
 
           <spotLight
             ref={spotRef}
             position={[0, 0, 0]}
-            angle={THREE.MathUtils.degToRad(Math.min(Math.max(object.beamAngle, 1), 60))}
-            penumbra={0.4}
-            distance={length * 1.4}
+            angle={angleRad}
+            penumbra={0.45}
+            distance={throwLen * 1.6}
             decay={0}
             intensity={0}
             castShadow={false}
