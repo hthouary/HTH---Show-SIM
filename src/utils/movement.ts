@@ -69,51 +69,81 @@ export function movementSeed(position: [number, number, number]): number {
   return position[0] * 1.3 + position[2] * 0.7;
 }
 
-const LASER_AMP = 0.5; // laser beams throw far, so a little swing goes a long way
+// --- Laser projectors -------------------------------------------------------
+// A laser is a *fan* of thin beams. The movement preset decides the SHAPE the
+// beams draw in the haze (and how it animates), not just how the whole head
+// swings. `laserBeamDir` returns the local direction of each individual beam
+// (forward is -Y, i.e. the fixture's aim before it is pointed at the target),
+// so the fan can form a rotating cone/tunnel, a travelling wave, etc.
 
-export interface LaserMoveRot {
-  /** Tilt of the whole fan (radians). */
-  x: number;
-  /** Pan of the whole fan (radians). */
-  z: number;
-  /** Roll around the projection axis (radians) — for the rotating-cone effect. */
-  spin: number;
-  active: boolean;
-}
+const FAN = 1.0; // total horizontal spread of a flat fan (rad) → about ±29°
+const CONE = 0.4; // half-angle of the circular cone/tunnel (rad) → about 23°
+const WAVE_AMP = 0.3; // vertical amplitude of the wave (rad)
+const WAVE_K = Math.PI * 3; // ~1.5 wavelengths across the fan
+const FAN_AMP = 0.5; // whole-fan pan/tilt amplitude for up-down / left-right
 
 /**
- * Movement for a laser projector. Unlike a moving head, a laser's signature
- * "circular" look is the fan of beams spinning around its own projection axis,
- * sweeping out a rotating cone (a circle in the haze) — so 'circular' is a
- * continuous roll, while the other presets pan / tilt the whole fan.
+ * Local unit direction for laser beam `i` of `count`, given the movement
+ * pattern, 0..100 speed, show time and a per-fixture seed. The shape the fan
+ * draws:
+ *  - circular   → a cone/ring of beams (a circle/tunnel) that rotates around
+ *                 its axis: stand in the middle and the beams turn around you;
+ *  - wave       → a horizontal sheet whose beams ripple up and down as a
+ *                 travelling wave: stand under it and it moves like a wave;
+ *  - up/left    → a plain flat fan (the whole fan is swung by `laserFanRot`);
+ *  - fixed      → a static flat fan.
  */
-export function laserMovement(
+export function laserBeamDir(
+  pattern: MovementPreset | undefined,
+  speed: number | undefined,
+  t: number,
+  i: number,
+  count: number,
+  seed = 0,
+): [number, number, number] {
+  const omega = movementOmega(speed ?? 0);
+  const u = count > 1 ? i / (count - 1) - 0.5 : 0; // -0.5 .. 0.5 across the fan
+
+  if (pattern === 'circular') {
+    // Beam i sits at azimuth φ around the aim axis, tilted out by the cone angle.
+    // Advancing φ with time spins the whole ring → a rotating tunnel of beams.
+    const phi = (i / count) * Math.PI * 2 + t * omega + seed;
+    const s = Math.sin(CONE);
+    const c = Math.cos(CONE);
+    return [s * Math.cos(phi), -c, s * Math.sin(phi)];
+  }
+
+  if (pattern === 'wave') {
+    // Flat horizontal spread, with each beam's elevation following a travelling
+    // sine so the sheet of light ripples like a wave.
+    const ax = u * FAN;
+    const az = Math.sin(u * WAVE_K - t * omega + seed) * WAVE_AMP;
+    const cax = Math.cos(ax);
+    return [Math.sin(ax), -cax * Math.cos(az), -cax * Math.sin(az)];
+  }
+
+  // fixed / up_down / left_right → a plain flat fan; the whole-fan sweep (if any)
+  // is applied separately via laserFanRot so the fan keeps its shape.
+  const ax = u * FAN;
+  return [Math.sin(ax), -Math.cos(ax), 0];
+}
+
+export interface FanRot {
+  x: number;
+  z: number;
+}
+
+/** Whole-fan pan/tilt for the presets that swing the entire fan as one. */
+export function laserFanRot(
   pattern: MovementPreset | undefined,
   speed: number | undefined,
   t: number,
   seed = 0,
-): LaserMoveRot {
+): FanRot {
   const spd = speed ?? 0;
-  if (!pattern || pattern === 'fixed' || spd <= 0) return { x: 0, z: 0, spin: 0, active: false };
-  const omega = movementOmega(spd);
-  const ph = t * omega + seed;
-  switch (pattern) {
-    case 'circular':
-      // Continuous roll around the aim axis → the beam fan sweeps a rotating cone.
-      return { x: 0, z: 0, spin: ph, active: true };
-    case 'wave':
-      // Liquid side-to-side sweep with a small vertical component and gentle roll.
-      return {
-        x: Math.sin(ph * 2) * LASER_AMP * 0.3,
-        z: Math.sin(ph) * LASER_AMP,
-        spin: Math.sin(ph * 0.5) * 0.25,
-        active: true,
-      };
-    case 'up_down':
-      return { x: Math.sin(ph) * LASER_AMP, z: 0, spin: 0, active: true };
-    case 'left_right':
-      return { x: 0, z: Math.sin(ph) * LASER_AMP, spin: 0, active: true };
-    default:
-      return { x: 0, z: 0, spin: 0, active: false };
-  }
+  if (spd <= 0) return { x: 0, z: 0 };
+  const ph = t * movementOmega(spd) + seed;
+  if (pattern === 'up_down') return { x: Math.sin(ph) * FAN_AMP, z: 0 };
+  if (pattern === 'left_right') return { x: 0, z: Math.sin(ph) * FAN_AMP };
+  return { x: 0, z: 0 };
 }
