@@ -11,13 +11,24 @@ import type { SceneObject } from '../../types/show';
 export function EmitterBody({ color }: { color: string }) {
   return (
     <group>
-      <mesh position={[0, -0.05, 0]}>
-        <boxGeometry args={[0.55, 0.34, 0.65]} />
-        <meshStandardMaterial color="#15181f" metalness={0.6} roughness={0.5} />
+      {/* Casing */}
+      <mesh position={[0, 0.02, 0]}>
+        <boxGeometry args={[0.72, 0.46, 0.82]} />
+        <meshStandardMaterial color="#191c24" metalness={0.6} roughness={0.45} />
       </mesh>
-      <mesh position={[0, 0.13, 0]}>
-        <boxGeometry args={[0.32, 0.05, 0.42]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.35} />
+      {/* Colored, emissive front label (visible even in the dark) */}
+      <mesh position={[0, 0.03, 0.415]}>
+        <planeGeometry args={[0.52, 0.18]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.9} toneMapped={false} />
+      </mesh>
+      {/* Emitter nozzle on top */}
+      <mesh position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.12, 0.17, 0.16, 14]} />
+        <meshStandardMaterial color="#0c0e14" metalness={0.7} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.39, 0]}>
+        <cylinderGeometry args={[0.1, 0.1, 0.03, 14]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} toneMapped={false} />
       </mesh>
     </group>
   );

@@ -3,5 +3,5 @@
  * live (e.g. on Vercel): it's logged to the console on boot and shown in the
  * top bar, so you can confirm the deployed build matches.
  */
-export const APP_VERSION = '0.2.3';
-export const APP_BUILD = 'confetti-flame';
+export const APP_VERSION = '0.2.4';
+export const APP_BUILD = 'bigger-flames-emitters';

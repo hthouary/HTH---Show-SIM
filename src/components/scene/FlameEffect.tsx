@@ -43,9 +43,10 @@ const FRAG = /* glsl */ `
     float n = fbm(q + fbm(q * 1.6));
     float cx = abs(uv.x - 0.5) * 2.0;
     float taper = 1.0 - uv.y;
-    float body = smoothstep(1.0, 0.0, cx / max(0.14, taper));
-    float flame = body * (0.5 + 0.65 * n) * taper;
-    flame = clamp(flame * 1.7 - 0.16, 0.0, 1.0);
+    // Wider body so the flame reads as a full, tall fire.
+    float body = smoothstep(1.0, 0.0, cx / max(0.28, taper * 1.1));
+    float flame = body * (0.55 + 0.6 * n) * taper;
+    flame = clamp(flame * 1.9 - 0.12, 0.0, 1.0);
     vec3 col = mix(vec3(1.0, 0.12, 0.0), vec3(1.0, 0.58, 0.05), smoothstep(0.0, 0.5, flame));
     col = mix(col, vec3(1.0, 0.95, 0.72), smoothstep(0.55, 1.0, flame));
     float alpha = flame * uOpacity;
@@ -102,10 +103,10 @@ export function FlameEffect({ object }: { object: SceneObject }) {
     <>
       <EmitterBody color={object.color} />
       <group ref={groupRef} visible={false}>
-        <mesh position={[0, 1.35, 0]} material={material} raycast={ignoreRaycast}>
-          <planeGeometry args={[1.3, 2.7]} />
+        <mesh position={[0, 2.1, 0]} material={material} raycast={ignoreRaycast}>
+          <planeGeometry args={[2.2, 4.2]} />
         </mesh>
-        <pointLight ref={lightRef} position={[0, 0.8, 0]} color="#ff7a1e" distance={9} decay={1.4} intensity={0} />
+        <pointLight ref={lightRef} position={[0, 1.2, 0]} color="#ff7a1e" distance={12} decay={1.3} intensity={0} />
       </group>
     </>
   );
