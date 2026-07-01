@@ -54,11 +54,15 @@ const round = (n: number) => Math.round(n * 10) / 10;
 export function SceneObject({ object }: { object: SceneObjectModel }) {
   const selectObject = useShowStore((s) => s.selectObject);
   const moveObject = useShowStore((s) => s.moveObject);
+  const updateObject = useShowStore((s) => s.updateObject);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
   const placementType = useShowStore((s) => s.placementType);
+  const gizmoMode = useShowStore((s) => s.gizmoMode);
   const selected = useShowStore((s) => s.selectedObjectId === object.id);
 
   const [node, setNode] = useState<THREE.Group | null>(null);
+
+  if (object.hidden) return null;
 
   // In placement mode a click drops the armed object at the clicked point.
   const placeAt = (point: THREE.Vector3) => {
@@ -97,11 +101,19 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
       {showGizmo && node && (
         <TransformControls
           object={node}
-          mode="translate"
+          mode={gizmoMode}
           size={0.85}
+          // Rotation is restricted to the X and Y axes (no Z ring).
+          showZ={gizmoMode !== 'rotate'}
           onMouseUp={() => {
-            const p = node.position;
-            moveObject(object.id, [p.x, p.y, p.z]);
+            if (gizmoMode === 'rotate') {
+              const r = node.rotation;
+              const r3 = (n: number) => Math.round(n * 1000) / 1000;
+              updateObject(object.id, { rotation: [r3(r.x), r3(r.y), r3(r.z)] });
+            } else {
+              const p = node.position;
+              moveObject(object.id, [p.x, p.y, p.z]);
+            }
           }}
         />
       )}

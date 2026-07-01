@@ -34,7 +34,9 @@ export type IconName =
   | 'close'
   | 'chevron'
   | 'eye'
-  | 'skip-back';
+  | 'skip-back'
+  | 'undo'
+  | 'redo';
 
 const PATHS: Record<IconName, JSX.Element> = {
   play: <path d="M6 4l14 8-14 8z" />,
@@ -195,6 +197,18 @@ const PATHS: Record<IconName, JSX.Element> = {
     </>
   ),
   chevron: <path d="M9 6l6 6-6 6" />,
+  undo: (
+    <>
+      <path d="M7 8l-4 4 4 4" />
+      <path d="M3 12h11a5 5 0 1 1 0 10h-3" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M17 8l4 4-4 4" />
+      <path d="M21 12H10a5 5 0 1 0 0 10h3" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />

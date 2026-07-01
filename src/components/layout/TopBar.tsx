@@ -28,6 +28,10 @@ export function TopBar() {
   const newProject = useShowStore((s) => s.newProject);
   const importJSON = useShowStore((s) => s.importProjectJSON);
   const setProjectName = useShowStore((s) => s.setProjectName);
+  const undo = useShowStore((s) => s.undo);
+  const redo = useShowStore((s) => s.redo);
+  const canUndo = useShowStore((s) => s.past.length > 0);
+  const canRedo = useShowStore((s) => s.future.length > 0);
 
   const [showLoad, setShowLoad] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -90,6 +94,14 @@ export function TopBar() {
             e.target.value = '';
           }}
         />
+
+        <div className="mx-1 h-6 w-px bg-ink-700" />
+        <button className="btn-ghost w-8 px-0" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+          <Icon name="undo" size={16} />
+        </button>
+        <button className="btn-ghost w-8 px-0" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+          <Icon name="redo" size={16} />
+        </button>
       </div>
 
       {/* Transport — centered */}

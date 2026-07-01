@@ -95,6 +95,7 @@ export function sanitizeProject(p: Project): Project {
     intensity: typeof o.intensity === 'number' ? o.intensity : 1,
     beamAngle: typeof o.beamAngle === 'number' ? o.beamAngle : 12,
     target: vec3(o.target, [0, 0, 4]),
+    hidden: o.hidden === true ? true : undefined,
   }));
 
   const events: ShowEvent[] = (p.events ?? []).map((e) => ({

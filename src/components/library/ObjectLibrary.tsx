@@ -3,7 +3,7 @@ import type { LibraryCategory, SceneObjectType } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { Icon, type IconName } from '../ui/Icon';
 
-const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
+export const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
   stage_platform: 'box',
   truss: 'truss',
   speaker: 'speaker',
@@ -36,7 +36,7 @@ export function ObjectLibrary() {
   const objectCount = useShowStore((s) => s.project.objects.length);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-ink-700/70 bg-ink-900">
+    <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
       <div className="panel-header border-b">
         <Icon name="box" size={14} />
         Library
@@ -98,6 +98,6 @@ export function ObjectLibrary() {
           ? 'Click in the scene to place it — press Esc to cancel.'
           : 'Click an item, then click in the scene to place it. Drag the arrows to move a selected object.'}
       </div>
-    </aside>
+    </div>
   );
 }

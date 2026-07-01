@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { TopBar } from './TopBar';
-import { ObjectLibrary } from '../library/ObjectLibrary';
+import { LeftPanel } from './LeftPanel';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { SceneViewport } from '../scene/SceneViewport';
 import { TimelinePanel } from '../timeline/TimelinePanel';
@@ -13,13 +13,30 @@ export function AppShell() {
   const togglePlay = useShowStore((s) => s.togglePlay);
   const deleteObject = useShowStore((s) => s.deleteObject);
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
+  const undo = useShowStore((s) => s.undo);
+  const redo = useShowStore((s) => s.redo);
+  const setGizmoMode = useShowStore((s) => s.setGizmoMode);
 
-  // Global keyboard shortcuts: Space = play/pause, Delete = remove selection.
+  // Global keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const typing =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+
+      // Undo / redo work even without a specific focus (but not while typing).
+      if (!typing && (e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (!typing && (e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
       if (typing) return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -29,16 +46,18 @@ export function AppShell() {
         e.preventDefault();
         deleteObject(selectedObjectId);
       }
+      if (e.key === 'w' || e.key === 'W') setGizmoMode('translate');
+      if (e.key === 'e' || e.key === 'E') setGizmoMode('rotate');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, deleteObject, selectedObjectId]);
+  }, [togglePlay, deleteObject, selectedObjectId, undo, redo, setGizmoMode]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
       <TopBar />
       <div className="flex min-h-0 flex-1">
-        <ObjectLibrary />
+        <LeftPanel />
         <main className="relative min-w-0 flex-1">
           <SceneViewport />
         </main>

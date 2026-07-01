@@ -49,6 +49,8 @@ export interface SceneObject {
   beamAngle: number;
   /** Aim point used by moving heads / lasers (world space). */
   target: Vec3;
+  /** Hidden in the viewport (still listed in the Outliner). */
+  hidden?: boolean;
 }
 
 /** Discrete, time-based effect commands that drive the show. */

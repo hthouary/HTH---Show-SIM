@@ -54,6 +54,9 @@ function ViewportOverlay({
   const toggleCollisions = useShowStore((s) => s.toggleCollisions);
   const placementType = useShowStore((s) => s.placementType);
   const cancelPlacement = useShowStore((s) => s.cancelPlacement);
+  const selectedId = useShowStore((s) => s.selectedObjectId);
+  const gizmoMode = useShowStore((s) => s.gizmoMode);
+  const setGizmoMode = useShowStore((s) => s.setGizmoMode);
 
   return (
     <>
@@ -62,6 +65,25 @@ function ViewportOverlay({
         <Icon name="eye" size={13} className="text-accent-cyan" />
         <span>Drag to orbit · Scroll to zoom · Click to select · Drag arrows to move</span>
       </div>
+
+      {/* Gizmo mode toolbar (only when an object is selected) */}
+      {selectedId && !placementType && (
+        <div className="absolute left-3 top-14 flex items-center gap-1 rounded-lg border border-ink-700/70 bg-ink-900/80 p-1 backdrop-blur">
+          {(['translate', 'rotate'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setGizmoMode(m)}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                gizmoMode === m ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title={m === 'translate' ? 'Move (W)' : 'Rotate on X / Y (E)'}
+            >
+              {m === 'translate' ? 'Move' : 'Rotate'}
+              <span className="ml-1 text-slate-600">{m === 'translate' ? 'W' : 'E'}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Top-right view toggles */}
       <div className="absolute right-3 top-3 flex items-center gap-2">

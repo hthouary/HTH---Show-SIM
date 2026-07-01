@@ -39,6 +39,14 @@ interface ShowState {
   placementType: SceneObjectType | null;
   /** Whether floor / object collisions are enforced while placing / moving. */
   collisions: boolean;
+  /** Active transform gizmo mode. */
+  gizmoMode: 'translate' | 'rotate';
+
+  // ---- Undo / redo ----------------------------------------------------
+  past: Project[];
+  future: Project[];
+  undo: () => void;
+  redo: () => void;
 
   // ---- Object actions -------------------------------------------------
   addObject: (type: SceneObjectType) => void;
@@ -53,6 +61,7 @@ interface ShowState {
   setPlacementType: (type: SceneObjectType | null) => void;
   cancelPlacement: () => void;
   toggleCollisions: () => void;
+  setGizmoMode: (mode: 'translate' | 'rotate') => void;
 
   // ---- Event actions --------------------------------------------------
   addEvent: (track: TrackId, type: string, atTime?: number) => void;
@@ -99,6 +108,26 @@ function initialProject(): Project {
 export const useShowStore = create<ShowState>((set, get) => {
   const startProject = initialProject();
 
+  // Undo/redo history. `record(label)` snapshots the current project *before* a
+  // mutation. Consecutive mutations with the same label within a short window
+  // are coalesced into one undo step (so dragging a slider is a single undo).
+  let histLabel = '';
+  let histTime = 0;
+  const record = (label: string) => {
+    const now = Date.now();
+    if (label === histLabel && now - histTime < 700) {
+      histTime = now;
+      return;
+    }
+    histLabel = label;
+    histTime = now;
+    set((s) => ({ past: [...s.past.slice(-59), s.project], future: [] }));
+  };
+  const resetHistory = () => {
+    histLabel = '';
+    histTime = 0;
+  };
+
   return {
     project: startProject,
     selectedObjectId: null,
@@ -110,9 +139,39 @@ export const useShowStore = create<ShowState>((set, get) => {
     toasts: [],
     placementType: null,
     collisions: false,
+    gizmoMode: 'translate',
+    past: [],
+    future: [],
+
+    undo: () =>
+      set((s) => {
+        if (s.past.length === 0) return {};
+        resetHistory();
+        const previous = s.past[s.past.length - 1];
+        return {
+          past: s.past.slice(0, -1),
+          future: [s.project, ...s.future].slice(0, 60),
+          project: previous,
+        };
+      }),
+
+    redo: () =>
+      set((s) => {
+        if (s.future.length === 0) return {};
+        resetHistory();
+        const next = s.future[0];
+        return {
+          past: [...s.past, s.project].slice(-60),
+          future: s.future.slice(1),
+          project: next,
+        };
+      }),
+
+    setGizmoMode: (mode) => set({ gizmoMode: mode }),
 
     // ---------------------------------------------------------------- Objects
     addObject: (type) => {
+      record('add');
       const obj = createSceneObject(type);
       set((s) => ({
         project: { ...s.project, objects: [...s.project.objects, obj], updatedAt: Date.now() },
@@ -122,6 +181,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     addObjectAt: (type, position) => {
+      record('add');
       const s = get();
       const pos = resolvePlacement(s.project.objects, null, type, 1, position, s.collisions);
       const obj = createSceneObject(type, { position: pos });
@@ -134,16 +194,19 @@ export const useShowStore = create<ShowState>((set, get) => {
       get().pushToast('success', `Placed ${CATALOG_BY_TYPE[type].label}`);
     },
 
-    updateObject: (id, patch) =>
+    updateObject: (id, patch) => {
+      record('update-object');
       set((s) => ({
         project: {
           ...s.project,
           objects: s.project.objects.map((o) => (o.id === id ? { ...o, ...patch } : o)),
           updatedAt: Date.now(),
         },
-      })),
+      }));
+    },
 
-    moveObject: (id, position) =>
+    moveObject: (id, position) => {
+      record('move');
       set((s) => {
         const obj = s.project.objects.find((o) => o.id === id);
         if (!obj) return {};
@@ -158,9 +221,11 @@ export const useShowStore = create<ShowState>((set, get) => {
             updatedAt: Date.now(),
           },
         };
-      }),
+      });
+    },
 
-    deleteObject: (id) =>
+    deleteObject: (id) => {
+      record('delete');
       set((s) => ({
         project: {
           ...s.project,
@@ -170,11 +235,13 @@ export const useShowStore = create<ShowState>((set, get) => {
           updatedAt: Date.now(),
         },
         selectedObjectId: s.selectedObjectId === id ? null : s.selectedObjectId,
-      })),
+      }));
+    },
 
     duplicateObject: (id) => {
       const original = get().project.objects.find((o) => o.id === id);
       if (!original) return;
+      record('duplicate');
       const copy: SceneObject = {
         ...original,
         id: createId(original.type),
@@ -201,6 +268,7 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     // ----------------------------------------------------------------- Events
     addEvent: (track, type, atTime) => {
+      record('add-event');
       const time = atTime ?? Math.min(get().currentTime, get().duration);
       const event: ShowEvent = {
         id: createId('evt'),
@@ -217,16 +285,19 @@ export const useShowStore = create<ShowState>((set, get) => {
       }));
     },
 
-    updateEvent: (id, patch) =>
+    updateEvent: (id, patch) => {
+      record('update-event');
       set((s) => ({
         project: {
           ...s.project,
           events: s.project.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
           updatedAt: Date.now(),
         },
-      })),
+      }));
+    },
 
-    deleteEvent: (id) =>
+    deleteEvent: (id) => {
+      record('delete-event');
       set((s) => ({
         project: {
           ...s.project,
@@ -234,7 +305,8 @@ export const useShowStore = create<ShowState>((set, get) => {
           updatedAt: Date.now(),
         },
         selectedEventId: s.selectedEventId === id ? null : s.selectedEventId,
-      })),
+      }));
+    },
 
     selectEvent: (id) => set({ selectedEventId: id, selectedObjectId: null }),
 
@@ -299,20 +371,25 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     // --------------------------------------------------------------- Project
-    setProjectName: (name) =>
-      set((s) => ({ project: { ...s.project, name, updatedAt: Date.now() } })),
+    setProjectName: (name) => {
+      record('rename');
+      set((s) => ({ project: { ...s.project, name, updatedAt: Date.now() } }));
+    },
 
-    setSettings: (patch) =>
+    setSettings: (patch) => {
+      record('settings');
       set((s) => {
         const settings = { ...s.project.settings, ...patch };
         return {
           project: { ...s.project, settings, updatedAt: Date.now() },
           duration: s.hasAudio ? s.duration : settings.duration,
         };
-      }),
+      });
+    },
 
     newProject: () => {
       audioEngine.dispose();
+      resetHistory();
       const project: Project = {
         id: createId('proj'),
         name: 'Untitled Show',
@@ -330,6 +407,8 @@ export const useShowStore = create<ShowState>((set, get) => {
         currentTime: 0,
         duration: 90,
         hasAudio: false,
+        past: [],
+        future: [],
       });
       get().pushToast('info', 'Created a new empty project');
     },
@@ -362,6 +441,7 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     replaceProject: (project) => {
       audioEngine.dispose();
+      resetHistory();
       set({
         project,
         selectedObjectId: null,
@@ -370,6 +450,8 @@ export const useShowStore = create<ShowState>((set, get) => {
         currentTime: 0,
         duration: project.settings.duration,
         hasAudio: false,
+        past: [],
+        future: [],
       });
     },
 
