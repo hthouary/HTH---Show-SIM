@@ -127,7 +127,7 @@ export function createDemoProject(): Project {
   ev(28, 2.2, 'lights', 'light_strobe', { rate: 9, color: '#ffffff' });
   ev(30, 18, 'lights', 'light_color', { color: '#e64bd6' });
   ev(30, 18, 'lights', 'light_intensity', { intensity: 1.3 });
-  ev(30, 18, 'lights', 'light_sweep', { amplitude: 2, speed: 1.1 });
+  ev(30, 18, 'lights', 'light_sweep', { amplitude: 1.4, speed: 0.55 });
   ev(30, 1.2, 'fx', 'flame_burst', { intensity: 1.2 });
   ev(30, 1.2, 'fx', 'confetti_burst', { intensity: 1.4 });
   ev(30, 18, 'led', 'led_pulse', { color: '#e64bd6', rate: 2.4 });
@@ -148,7 +148,7 @@ export function createDemoProject(): Project {
   ev(60, 2, 'lights', 'light_strobe', { rate: 10, color: '#ffffff' });
   ev(62, 16, 'lights', 'light_color', { color: '#ff7b1c' });
   ev(62, 16, 'lights', 'light_intensity', { intensity: 1.4 });
-  ev(62, 16, 'lights', 'light_sweep', { amplitude: 2.2, speed: 1.3 });
+  ev(62, 16, 'lights', 'light_sweep', { amplitude: 1.5, speed: 0.6 });
   ev(62, 16, 'led', 'led_pulse', { color: '#ff7b1c', rate: 2.8 });
   ev(62, 16, 'lasers', 'laser_on', { color: '#39ff14' });
   ev(62, 1.2, 'fx', 'co2_burst', { intensity: 1.3 });

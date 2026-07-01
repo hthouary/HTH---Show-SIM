@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { lightForObject } from '../../utils/events';
+import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { makeBeamMaterial } from './beam';
 import { getGlowTexture } from './textures';
@@ -74,8 +75,11 @@ export function LightFixture({ object }: Props) {
       spotRef.current.intensity = eff * 16;
     }
 
-    // Volumetric beam — steady, with only a very slow, gentle breath (no flicker).
-    const breathe = 0.98 + Math.sin(t * 0.5 + object.position[0]) * 0.02;
+    // When paused, everything is perfectly frozen (no per-frame motion at all).
+    const playing = useShowStore.getState().isPlaying;
+
+    // Volumetric beam — steady; only a barely-perceptible slow breath while playing.
+    const breathe = playing ? 0.98 + Math.sin(t * 0.5 + object.position[0]) * 0.02 : 1;
     beamMat.uniforms.uColor.value.copy(tmpColor);
     beamMat.uniforms.uOpacity.value = Math.min(0.85, eff * 0.5) * breathe;
 
@@ -94,10 +98,11 @@ export function LightFixture({ object }: Props) {
     }
 
     // Sweep / idle sway — pivots from the lens like a real moving head.
+    // The idle sway only runs while playing so a paused scene is dead still.
     if (swingRef.current) {
-      const sway = Math.sin(t * 0.8 + object.position[0]) * 0.05;
+      const sway = playing ? Math.sin(t * 0.8 + object.position[0]) * 0.045 : 0;
       swingRef.current.rotation.z = light.sweep * 0.4 + sway;
-      swingRef.current.rotation.x = Math.sin(t * 0.5 + object.position[2]) * 0.05;
+      swingRef.current.rotation.x = playing ? Math.sin(t * 0.5 + object.position[2]) * 0.045 : 0;
     }
   });
 

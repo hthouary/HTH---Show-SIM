@@ -35,7 +35,7 @@ export function SceneViewport() {
     <div className="relative h-full w-full bg-gradient-to-b from-[#070912] to-[#03040a]">
       <Canvas
         dpr={[1, 2]}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
         camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 300 }}
         onPointerMissed={() => selectObject(null)}
       >
@@ -53,8 +53,17 @@ export function SceneViewport() {
           maxPolarAngle={Math.PI / 2 - 0.02}
         />
         <EffectComposer>
-          <Bloom mipmapBlur intensity={0.9} luminanceThreshold={0.25} luminanceSmoothing={0.3} radius={0.7} />
-          <Vignette eskil={false} offset={0.25} darkness={0.8} />
+          {/* Gentle, stable bloom: high threshold so only genuinely bright beams
+              glow (mid-tones no longer flip across the threshold), soft
+              smoothing to avoid popping, modest intensity. */}
+          <Bloom
+            mipmapBlur
+            intensity={0.55}
+            luminanceThreshold={0.7}
+            luminanceSmoothing={0.5}
+            radius={0.6}
+          />
+          <Vignette eskil={false} offset={0.28} darkness={0.7} />
         </EffectComposer>
       </Canvas>
       <ViewportOverlay />

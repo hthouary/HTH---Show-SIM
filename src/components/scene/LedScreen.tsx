@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useShowStateRef } from './ShowStateContext';
+import { useShowStore } from '../../store/useShowStore';
 import { audioEngine } from '../../utils/audio';
 
 const VERT = /* glsl */ `
@@ -73,7 +74,8 @@ export function LedScreen() {
   useFrame((_, delta) => {
     const led = showRef.current.led;
     const black = 1 - showRef.current.blackout;
-    uniforms.uTime.value += delta;
+    // Freeze the wall animation when paused so the scene is fully static.
+    if (useShowStore.getState().isPlaying) uniforms.uTime.value += delta;
     uniforms.uColor.value.setRGB(led.color[0] * black, led.color[1] * black, led.color[2] * black);
     uniforms.uPulse.value = led.pulse * black;
     // Smoothly follow the music level.

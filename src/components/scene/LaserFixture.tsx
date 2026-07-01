@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { laserColorForObject } from '../../utils/events';
+import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
@@ -61,8 +62,9 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     tmpColor.setRGB(rgb[0], rgb[1], rgb[2]);
     const on = state.laser.active && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
-    // Steady beams, only a very slow shimmer (no high-frequency flicker).
-    const shimmer = 0.96 + Math.sin(clock.elapsedTime * 0.8) * 0.04;
+    const playing = useShowStore.getState().isPlaying;
+    // Steady beams, only a very slow shimmer while playing (frozen when paused).
+    const shimmer = playing ? 0.97 + Math.sin(clock.elapsedTime * 0.8) * 0.03 : 1;
 
     coreMat.color.copy(tmpColor);
     coreMat.opacity = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
@@ -73,8 +75,11 @@ export function LaserFixture({ object }: { object: SceneObject }) {
 
     if (fanRef.current) {
       fanRef.current.visible = on;
-      fanRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.5) * 0.6;
-      fanRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.8) * 0.14;
+      // Only animate the fan while playing, so a paused scene is completely still.
+      if (playing) {
+        fanRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.4) * 0.5;
+        fanRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.6) * 0.12;
+      }
     }
   });
 
