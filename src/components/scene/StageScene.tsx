@@ -7,7 +7,7 @@ import { evaluateEvents } from '../../utils/events';
 import { ShowStateContext, type ShowStateRef } from './ShowStateContext';
 import { SceneObject } from './SceneObject';
 
-export function StageScene() {
+export function StageScene({ workLight = false }: { workLight?: boolean }) {
   const objects = useShowStore((s) => s.project.objects);
   const events = useShowStore((s) => s.project.events);
   const fog = useShowStore((s) => s.project.settings.fog);
@@ -33,12 +33,24 @@ export function StageScene() {
 
   return (
     <ShowStateContext.Provider value={showRef}>
-      {fog && <fogExp2 attach="fog" args={['#05060a', 0.018]} />}
+      {/* Fog is disabled in Work Light mode so distant objects stay clearly visible. */}
+      {fog && !workLight && <fogExp2 attach="fog" args={['#05060a', 0.018]} />}
 
       {/* Ambient / fill */}
       <ambientLight ref={ambientRef} intensity={0.12} />
       <hemisphereLight args={['#223', '#000', 0.18]} />
       <pointLight ref={flashRef} position={[0, 7, 2]} intensity={0} distance={60} decay={0.6} />
+
+      {/* Work Light ("god mode"): flat, neutral, bright lighting so the whole
+          scene is easy to see while building — independent of the show state. */}
+      {workLight && (
+        <group>
+          <ambientLight intensity={0.9} color="#eef3ff" />
+          <hemisphereLight args={['#e6edff', '#3a4152', 0.7]} />
+          <directionalLight position={[10, 16, 8]} intensity={1.2} color="#ffffff" />
+          <directionalLight position={[-9, 11, -6]} intensity={0.55} color="#cfe0ff" />
+        </group>
+      )}
 
       {/* Floor + grid */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>

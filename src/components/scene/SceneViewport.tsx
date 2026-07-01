@@ -8,7 +8,46 @@ import { StageScene } from './StageScene';
 import { useShowStore } from '../../store/useShowStore';
 import { Icon } from '../ui/Icon';
 
-function ViewportOverlay({ bloom, onToggleBloom }: { bloom: boolean; onToggleBloom: () => void }) {
+function ToggleButton({
+  active,
+  onClick,
+  icon,
+  label,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: 'sparkles' | 'lightbulb';
+  label: string;
+  title: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+        active
+          ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan'
+          : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
+      }`}
+      title={title}
+    >
+      <Icon name={icon} size={13} />
+      {label}: {active ? 'On' : 'Off'}
+    </button>
+  );
+}
+
+function ViewportOverlay({
+  bloom,
+  onToggleBloom,
+  workLight,
+  onToggleWorkLight,
+}: {
+  bloom: boolean;
+  onToggleBloom: () => void;
+  workLight: boolean;
+  onToggleWorkLight: () => void;
+}) {
   const objectCount = useShowStore((s) => s.project.objects.length);
   return (
     <>
@@ -17,19 +56,23 @@ function ViewportOverlay({ bloom, onToggleBloom }: { bloom: boolean; onToggleBlo
         <Icon name="eye" size={13} className="text-accent-cyan" />
         <span>Drag to orbit · Scroll to zoom · Click to select</span>
       </div>
-      {/* Top-right: bloom / glow toggle (turn off if the display flickers) */}
-      <button
-        onClick={onToggleBloom}
-        className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
-          bloom
-            ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan'
-            : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
-        }`}
-        title="Toggle bloom / glow. Turn off if your display flickers."
-      >
-        <Icon name="sparkles" size={13} />
-        Glow: {bloom ? 'On' : 'Off'}
-      </button>
+      {/* Top-right view toggles */}
+      <div className="absolute right-3 top-3 flex items-center gap-2">
+        <ToggleButton
+          active={workLight}
+          onClick={onToggleWorkLight}
+          icon="lightbulb"
+          label="Work Light"
+          title="Toggle a bright neutral light to see the whole scene while building."
+        />
+        <ToggleButton
+          active={bloom}
+          onClick={onToggleBloom}
+          icon="sparkles"
+          label="Glow"
+          title="Toggle bloom / glow. Turn off if your display flickers."
+        />
+      </div>
       {objectCount === 0 && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="rounded-xl border border-ink-700 bg-ink-900/80 px-6 py-4 text-center text-sm text-slate-400 backdrop-blur">
@@ -47,6 +90,8 @@ export function SceneViewport() {
   // Bloom defaults OFF: it flickers on some Windows/Chrome GPU+driver combos.
   // The scene glows via additive materials on its own; users can enable it.
   const [bloom, setBloom] = useState(false);
+  // Work light ("god mode"): bright neutral lighting to build the scene.
+  const [workLight, setWorkLight] = useState(false);
 
   return (
     <div className="relative h-full w-full bg-gradient-to-b from-[#070912] to-[#03040a]">
@@ -58,7 +103,7 @@ export function SceneViewport() {
       >
         <color attach="background" args={['#04050a']} />
         <Suspense fallback={null}>
-          <StageScene />
+          <StageScene workLight={workLight} />
         </Suspense>
         <OrbitControls
           makeDefault
@@ -86,7 +131,12 @@ export function SceneViewport() {
           </EffectComposer>
         )}
       </Canvas>
-      <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
+      <ViewportOverlay
+        bloom={bloom}
+        onToggleBloom={() => setBloom((b) => !b)}
+        workLight={workLight}
+        onToggleWorkLight={() => setWorkLight((w) => !w)}
+      />
     </div>
   );
 }
