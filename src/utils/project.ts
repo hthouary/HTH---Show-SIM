@@ -1,5 +1,6 @@
-import type { Project, ProjectSummary, SceneObject, ShowEvent } from '../types/show';
+import type { Project, ProjectSummary, SceneObject } from '../types/show';
 import { createId } from '../data/catalog';
+import { migrateTimeline } from './timeline';
 
 const INDEX_KEY = 'showforge.projects.index';
 const PROJECT_KEY = (id: string) => `showforge.project.${id}`;
@@ -98,15 +99,16 @@ export function sanitizeProject(p: Project): Project {
     hidden: o.hidden === true ? true : undefined,
   }));
 
-  const events: ShowEvent[] = (p.events ?? []).map((e) => ({
-    id: e.id ?? createId('evt'),
+  // Normalize each event's timing, then migrate the timeline into the lane model
+  // (handles both new lane/targets files and older track/target ones).
+  const rawEvents = ((p.events ?? []) as unknown as Record<string, unknown>[]).map((e) => ({
+    ...e,
+    id: (e.id as string) ?? createId('evt'),
     time: clampNum(e.time, 0),
     duration: clampNum(e.duration, 1),
-    track: e.track ?? 'lights',
-    type: e.type,
-    target: e.target ?? 'all',
     params: e.params && typeof e.params === 'object' ? e.params : {},
   }));
+  const { lanes, events } = migrateTimeline({ lanes: (p as Project).lanes, events: rawEvents });
 
   return {
     id: p.id ?? createId('proj'),
@@ -114,6 +116,7 @@ export function sanitizeProject(p: Project): Project {
     createdAt: p.createdAt ?? Date.now(),
     updatedAt: p.updatedAt ?? Date.now(),
     objects,
+    lanes,
     events,
     settings: {
       duration: clampNum(p.settings?.duration, 90),

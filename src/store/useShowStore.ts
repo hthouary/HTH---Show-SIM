@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import type { Project, SceneObject, SceneObjectType, ShowEvent, TrackId, Vec3 } from '../types/show';
+import type { Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
 import { createId, createSceneObject, defaultEventParams } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { resolvePlacement } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
+import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
 import { translate, type Lang } from '../i18n/translations';
 import {
   getLastProjectId,
@@ -83,9 +84,17 @@ interface ShowState {
   setSnapDivision: (division: number) => void;
   toggleBeatGrid: () => void;
 
+  // ---- Lane actions ---------------------------------------------------
+  addLane: () => void;
+  removeLane: (id: string) => void;
+  renameLane: (id: string, name: string) => void;
+
   // ---- Event actions --------------------------------------------------
-  addEvent: (track: TrackId, type: string, atTime?: number) => void;
+  addBlock: (laneId: string) => void;
+  moveEvent: (id: string, time: number, laneId: string) => void;
+  resizeEventBlock: (id: string, edge: 'left' | 'right', timeAtPointer: number) => void;
   updateEvent: (id: string, patch: Partial<ShowEvent>) => void;
+  duplicateEvent: (id: string) => void;
   deleteEvent: (id: string) => void;
   selectEvent: (id: string | null) => void;
 
@@ -291,8 +300,10 @@ export const useShowStore = create<ShowState>((set, get) => {
         project: {
           ...s.project,
           objects: s.project.objects.filter((o) => o.id !== id),
-          // Re-target events that pointed at the deleted object.
-          events: s.project.events.map((e) => (e.target === id ? { ...e, target: 'all' } : e)),
+          // Drop the deleted object from any event that targeted it.
+          events: s.project.events.map((e) =>
+            e.targets.includes(id) ? { ...e, targets: e.targets.filter((t) => t !== id) } : e,
+          ),
           updatedAt: Date.now(),
         },
         selectedObjectId: s.selectedObjectId === id ? null : s.selectedObjectId,
@@ -327,26 +338,131 @@ export const useShowStore = create<ShowState>((set, get) => {
       get().pushToast('info', tr('toast.collisions', { state: tr(next ? 'toast.on' : 'toast.off') }));
     },
 
+    // ------------------------------------------------------------------ Lanes
+    addLane: () => {
+      record('add-lane');
+      set((s) => {
+        const n = s.project.lanes.length + 1;
+        const lane = { id: createId('lane'), name: `${tr('timeline.lane')} ${n}` };
+        return { project: { ...s.project, lanes: [...s.project.lanes, lane], updatedAt: Date.now() } };
+      });
+    },
+
+    removeLane: (id) => {
+      record('remove-lane');
+      set((s) => ({
+        project: {
+          ...s.project,
+          lanes: s.project.lanes.filter((l) => l.id !== id),
+          events: s.project.events.filter((e) => e.lane !== id),
+          updatedAt: Date.now(),
+        },
+        selectedEventId: s.project.events.some((e) => e.lane === id && e.id === s.selectedEventId)
+          ? null
+          : s.selectedEventId,
+      }));
+    },
+
+    renameLane: (id, name) => {
+      record('rename-lane');
+      set((s) => ({
+        project: {
+          ...s.project,
+          lanes: s.project.lanes.map((l) => (l.id === id ? { ...l, name } : l)),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
     // ----------------------------------------------------------------- Events
-    addEvent: (track, type, atTime) => {
-      record('add-event');
+    addBlock: (laneId) => {
       const s = get();
-      const raw = atTime ?? Math.min(s.currentTime, s.duration);
-      const time = s.snapEnabled
-        ? snapToGrid(raw, s.project.settings.bpm ?? 120, s.snapDivision)
-        : Math.round(raw * 10) / 10;
+      const bpm = s.project.settings.bpm ?? 120;
+      const dur = 4;
+      const raw = Math.min(s.currentTime, s.duration);
+      const preferred = s.snapEnabled ? snapToGrid(raw, bpm, s.snapDivision) : Math.round(raw * 10) / 10;
+      const others = s.project.events.filter((e) => e.lane === laneId).map((e) => ({ time: e.time, duration: e.duration }));
+      const start = firstFreeStart(others, dur, s.duration, preferred);
+      if (start == null) {
+        get().pushToast('error', tr('toast.noRoom'));
+        return;
+      }
+      record('add-event');
+      const type = 'light_color' as ShowEvent['type'];
       const event: ShowEvent = {
         id: createId('evt'),
-        time: Math.max(0, time),
-        duration: type.endsWith('_burst') || type === 'blackout' ? 1.2 : 6,
-        track,
-        type: type as ShowEvent['type'],
-        target: 'all',
+        lane: laneId,
+        time: start,
+        duration: Math.min(dur, Math.max(0.2, s.duration - start)),
+        type,
+        targets: [],
         params: defaultEventParams(type),
       };
-      set((s) => ({
-        project: { ...s.project, events: [...s.project.events, event], updatedAt: Date.now() },
+      set((st) => ({
+        project: { ...st.project, events: [...st.project.events, event], updatedAt: Date.now() },
         selectedEventId: event.id,
+        selectedObjectId: null,
+      }));
+    },
+
+    moveEvent: (id, time, laneId) => {
+      set((s) => {
+        const ev = s.project.events.find((e) => e.id === id);
+        if (!ev) return {};
+        const bpm = s.project.settings.bpm ?? 120;
+        const desired = s.snapEnabled ? snapToGrid(time, bpm, s.snapDivision) : Math.round(time * 10) / 10;
+        let lane = laneId;
+        let start = placeOnLane(s.project.events, id, lane, ev.duration, desired, s.duration);
+        if (start == null && lane !== ev.lane) {
+          lane = ev.lane;
+          start = placeOnLane(s.project.events, id, lane, ev.duration, desired, s.duration);
+        }
+        if (start == null || (start === ev.time && lane === ev.lane)) return {};
+        record('move-event');
+        return {
+          project: {
+            ...s.project,
+            events: s.project.events.map((e) => (e.id === id ? { ...e, time: start as number, lane } : e)),
+            updatedAt: Date.now(),
+          },
+        };
+      });
+    },
+
+    resizeEventBlock: (id, edge, timeAtPointer) => {
+      set((s) => {
+        const ev = s.project.events.find((e) => e.id === id);
+        if (!ev) return {};
+        const bpm = s.project.settings.bpm ?? 120;
+        const desired = s.snapEnabled ? snapToGrid(timeAtPointer, bpm, s.snapDivision) : Math.round(timeAtPointer * 10) / 10;
+        const next = resizeEventTimes(s.project.events, ev, edge, desired, s.duration);
+        if (next.time === ev.time && next.duration === ev.duration) return {};
+        record('resize-event');
+        return {
+          project: {
+            ...s.project,
+            events: s.project.events.map((e) => (e.id === id ? { ...e, ...next } : e)),
+            updatedAt: Date.now(),
+          },
+        };
+      });
+    },
+
+    duplicateEvent: (id) => {
+      const s = get();
+      const ev = s.project.events.find((e) => e.id === id);
+      if (!ev) return;
+      const others = s.project.events.filter((e) => e.lane === ev.lane).map((e) => ({ time: e.time, duration: e.duration }));
+      const start = firstFreeStart(others, ev.duration, s.duration, ev.time + ev.duration);
+      if (start == null) {
+        get().pushToast('error', tr('toast.noRoom'));
+        return;
+      }
+      record('duplicate-event');
+      const copy: ShowEvent = { ...ev, id: createId('evt'), time: start, params: { ...ev.params }, targets: [...ev.targets] };
+      set((st) => ({
+        project: { ...st.project, events: [...st.project.events, copy], updatedAt: Date.now() },
+        selectedEventId: copy.id,
       }));
     },
 
@@ -461,6 +577,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         objects: [],
+        lanes: [{ id: createId('lane'), name: `${tr('timeline.lane')} 1` }],
         events: [],
         settings: { duration: 90, bpm: 128, fog: true },
       };

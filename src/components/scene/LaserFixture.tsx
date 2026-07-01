@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
-import { laserColorForObject, laserMoveForObject } from '../../utils/events';
+import { laserColorForObject, laserMoveForObject, laserOnForObject } from '../../utils/events';
 import { laserBeamDir, laserFanRot, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
@@ -72,7 +72,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     const rgb = laserColorForObject(state, object.id);
     const lm = laserMoveForObject(state, object.id);
     tmpColor.setRGB(rgb[0], rgb[1], rgb[2]);
-    const on = state.laser.active && state.blackout < 0.6;
+    const on = laserOnForObject(state, object.id) && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
     const playing = useShowStore.getState().isPlaying;
     // Steady beams, only a very slow shimmer while playing (frozen when paused).

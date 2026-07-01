@@ -1,4 +1,4 @@
-import type { LibraryCategory, SceneObject, SceneObjectType, TrackId } from '../types/show';
+import type { EventCategory, LibraryCategory, SceneObject, SceneObjectType, ShowEventType } from '../types/show';
 
 export interface CatalogEntry {
   type: SceneObjectType;
@@ -6,8 +6,8 @@ export interface CatalogEntry {
   category: LibraryCategory;
   /** Short hint shown in the library. */
   hint: string;
-  /** Which timeline track this object's events naturally belong to. */
-  track: TrackId;
+  /** Which effect family this object's events naturally belong to. */
+  track: EventCategory;
   /** Whether the object emits a light/laser cone (drives inspector fields). */
   emitsBeam: boolean;
   /** Default factory values applied when the object is added. */
@@ -299,38 +299,38 @@ export function defaultEventParams(type: string): Record<string, unknown> {
   }
 }
 
-export const TRACKS: { id: TrackId; label: string; color: string }[] = [
-  { id: 'lights', label: 'Lights', color: '#22d3ee' },
-  { id: 'lasers', label: 'Lasers', color: '#39ff14' },
-  { id: 'fx', label: 'FX', color: '#ff7b1c' },
-  { id: 'led', label: 'LED Screen', color: '#8b5cf6' },
-];
-
-export const EVENT_TYPES_BY_TRACK: Record<TrackId, ShowEventTypeMeta[]> = {
-  lights: [
-    { type: 'light_color', label: 'Light Color' },
-    { type: 'light_intensity', label: 'Light Intensity' },
-    { type: 'light_strobe', label: 'Strobe' },
-    { type: 'light_sweep', label: 'Movement' },
-    { type: 'blackout', label: 'Blackout' },
-  ],
-  lasers: [
-    { type: 'laser_on', label: 'Laser On' },
-    { type: 'laser_color', label: 'Laser Color' },
-  ],
-  fx: [
-    { type: 'smoke_burst', label: 'Smoke Burst' },
-    { type: 'flame_burst', label: 'Flame Burst' },
-    { type: 'co2_burst', label: 'CO2 Burst' },
-    { type: 'confetti_burst', label: 'Confetti Burst' },
-  ],
-  led: [
-    { type: 'led_color', label: 'LED Color' },
-    { type: 'led_pulse', label: 'LED Pulse' },
-  ],
+/** Colour per effect family (drives the block + track accents). */
+export const CATEGORY_COLOR: Record<EventCategory, string> = {
+  lights: '#22d3ee',
+  lasers: '#39ff14',
+  fx: '#ff7b1c',
+  led: '#8b5cf6',
+  global: '#f43f5e',
 };
 
-export interface ShowEventTypeMeta {
-  type: string;
-  label: string;
+/** Every event type with its family, grouped for the block "Type" picker. */
+export const EVENT_TYPE_GROUPS: { category: EventCategory; types: ShowEventType[] }[] = [
+  { category: 'lights', types: ['light_color', 'light_intensity', 'light_strobe', 'light_sweep'] },
+  { category: 'lasers', types: ['laser_on', 'laser_color'] },
+  { category: 'fx', types: ['smoke_burst', 'flame_burst', 'co2_burst', 'confetti_burst'] },
+  { category: 'led', types: ['led_color', 'led_pulse'] },
+  { category: 'global', types: ['blackout'] },
+];
+
+const TYPE_CATEGORY: Record<ShowEventType, EventCategory> = EVENT_TYPE_GROUPS.reduce(
+  (acc, g) => {
+    for (const t of g.types) acc[t] = g.category;
+    return acc;
+  },
+  {} as Record<ShowEventType, EventCategory>,
+);
+
+/** The effect family a given event type belongs to. */
+export function eventCategory(type: ShowEventType): EventCategory {
+  return TYPE_CATEGORY[type] ?? 'global';
+}
+
+/** Display colour for an event block of a given type. */
+export function eventColor(type: ShowEventType): string {
+  return CATEGORY_COLOR[eventCategory(type)];
 }

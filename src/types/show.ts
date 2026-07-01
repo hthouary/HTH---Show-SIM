@@ -29,8 +29,8 @@ export type SceneObjectType =
 
 export type LibraryCategory = 'stage' | 'lights' | 'fx';
 
-/** Which timeline track an object's effects belong to (for event targeting hints). */
-export type TrackId = 'lights' | 'lasers' | 'fx' | 'led';
+/** Broad family an event type belongs to (drives its colour + grouping). */
+export type EventCategory = 'lights' | 'lasers' | 'fx' | 'led' | 'global';
 
 export type Vec3 = [number, number, number];
 
@@ -75,16 +75,23 @@ export type ShowEventType =
   | 'led_color'
   | 'blackout';
 
+/** A free-form timeline lane (row). Blocks can be placed on any lane. */
+export interface Lane {
+  id: string;
+  name: string;
+}
+
 export interface ShowEvent {
   id: string;
+  /** Lane (row) this block sits on. */
+  lane: string;
   /** Start time in seconds. */
   time: number;
   /** Duration in seconds. */
   duration: number;
-  track: TrackId;
   type: ShowEventType;
-  /** "all" or a specific SceneObject id. */
-  target: 'all' | string;
+  /** Object ids this action applies to. Empty = all eligible objects. */
+  targets: string[];
   params: Record<string, unknown>;
 }
 
@@ -104,6 +111,8 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   objects: SceneObject[];
+  /** Timeline lanes (rows), in display order. */
+  lanes: Lane[];
   events: ShowEvent[];
   settings: ProjectSettings;
 }

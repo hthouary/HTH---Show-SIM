@@ -66,6 +66,8 @@ export interface ShowState {
   laserOverrides: Record<string, RGB>;
   /** Per-object laser movement overrides keyed by object id. */
   laserMoveOverrides: Record<string, MoveState>;
+  /** Per-object laser on/off (a laser_on targeting specific projectors). */
+  laserActive: Record<string, boolean>;
   led: LedState;
   /** Active bursts keyed by target object id (or "all"). */
   bursts: {
@@ -119,6 +121,7 @@ function defaultState(time: number): ShowState {
     laser: { active: false, color: [0.22, 1, 0.08], intensity: 1, move: { ...STILL } },
     laserOverrides: {},
     laserMoveOverrides: {},
+    laserActive: {},
     led: { color: [0.07, 0.12, 0.24], pulse: 0 },
     bursts: { smoke: {}, flame: {}, co2: {}, confetti: {} },
   };
@@ -128,6 +131,11 @@ function ensureOverride(state: ShowState, target: string): Partial<LightState> {
   if (target === 'all') return state.light;
   if (!state.overrides[target]) state.overrides[target] = {};
   return state.overrides[target];
+}
+
+/** An event's targets, with an empty list meaning "all" (the global state). */
+function targetsOf(ev: ShowEvent): string[] {
+  return ev.targets && ev.targets.length ? ev.targets : ['all'];
 }
 
 /**
@@ -143,21 +151,25 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
     const active = t >= ev.time && t < ev.time + Math.max(ev.duration, 0.0001);
     const local = ev.duration > 0 ? (t - ev.time) / ev.duration : active ? 1 : 0;
 
+    const targets = targetsOf(ev);
+
     switch (ev.type) {
       // ---- State events (persist after start) -----------------------------
       case 'light_color': {
-        if (started) ensureOverride(state, ev.target).color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+        if (started) for (const tg of targets) ensureOverride(state, tg).color = hexToRgb(str(ev.params, 'color', '#ffffff'));
         break;
       }
       case 'light_intensity': {
-        if (started) ensureOverride(state, ev.target).intensity = num(ev.params, 'intensity', 1);
+        if (started) for (const tg of targets) ensureOverride(state, tg).intensity = num(ev.params, 'intensity', 1);
         break;
       }
       case 'laser_color': {
         if (started) {
           const rgb = hexToRgb(str(ev.params, 'color', '#39ff14'));
-          if (ev.target === 'all') state.laser.color = rgb;
-          else state.laserOverrides[ev.target] = rgb;
+          for (const tg of targets) {
+            if (tg === 'all') state.laser.color = rgb;
+            else state.laserOverrides[tg] = rgb;
+          }
         }
         break;
       }
@@ -169,44 +181,52 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       // ---- Window events (active only during their span) ------------------
       case 'light_strobe': {
         if (active) {
-          const target = ensureOverride(state, ev.target);
           const rate = num(ev.params, 'rate', 10);
           // Pulse between a dim floor and full, rather than hard off/on, so the
           // strobe reads as energetic without being harshly epileptic.
           const gate = Math.sin(t * rate * Math.PI * 2) > 0 ? 1 : 0.2;
-          target.strobe = gate;
-          target.strobing = true;
-          target.color = hexToRgb(str(ev.params, 'color', '#ffffff'));
-          target.intensity = Math.max(target.intensity ?? 1, 1.3);
+          const color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+          for (const tg of targets) {
+            const target = ensureOverride(state, tg);
+            target.strobe = gate;
+            target.strobing = true;
+            target.color = color;
+            target.intensity = Math.max(target.intensity ?? 1, 1.3);
+          }
         }
         break;
       }
       case 'light_sweep': {
         // "Movement" event: sets the beam movement pattern + speed for its span.
         if (active) {
-          const target = ensureOverride(state, ev.target);
-          target.move = {
+          const move: MoveState = {
             pattern: str(ev.params, 'pattern', 'wave') as MovementPreset,
             speed: num(ev.params, 'speed', 40),
           };
+          for (const tg of targets) ensureOverride(state, tg).move = { ...move };
         }
         break;
       }
       case 'laser_on': {
         if (active) {
-          state.laser.active = true;
-          state.laser.intensity = envelope(local) * 0.5 + 0.5;
+          const intensity = envelope(local) * 0.5 + 0.5;
           const move: MoveState = {
             pattern: str(ev.params, 'pattern', 'fixed') as MovementPreset,
             speed: num(ev.params, 'speed', 0),
           };
           const c = ev.params['color'];
-          if (ev.target === 'all') {
-            state.laser.move = move;
-            if (typeof c === 'string') state.laser.color = hexToRgb(c);
-          } else {
-            state.laserMoveOverrides[ev.target] = move;
-            if (typeof c === 'string') state.laserOverrides[ev.target] = hexToRgb(c);
+          for (const tg of targets) {
+            if (tg === 'all') {
+              state.laser.active = true;
+              state.laser.intensity = intensity;
+              state.laser.move = { ...move };
+              if (typeof c === 'string') state.laser.color = hexToRgb(c);
+            } else {
+              state.laserActive[tg] = true;
+              state.laser.intensity = intensity;
+              state.laserMoveOverrides[tg] = { ...move };
+              if (typeof c === 'string') state.laserOverrides[tg] = hexToRgb(c);
+            }
           }
         }
         break;
@@ -240,11 +260,12 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
                 : ev.type === 'co2_burst'
                   ? state.bursts.co2
                   : state.bursts.confetti;
-          bucket[ev.target] = {
+          const burst: BurstState = {
             progress: Math.max(0, Math.min(1, local)),
             env: envelope(local),
             intensity: num(ev.params, 'intensity', 1),
           };
+          for (const tg of targets) bucket[tg] = burst;
         }
         break;
       }
@@ -269,4 +290,9 @@ export function laserColorForObject(state: ShowState, id: string): RGB {
 /** Resolve the laser movement for a specific object id. */
 export function laserMoveForObject(state: ShowState, id: string): MoveState {
   return state.laserMoveOverrides[id] ?? state.laser.move;
+}
+
+/** Whether a specific laser projector is currently on (global "all" or targeted). */
+export function laserOnForObject(state: ShowState, id: string): boolean {
+  return state.laser.active || state.laserActive[id] === true;
 }
