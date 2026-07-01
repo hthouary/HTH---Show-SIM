@@ -15,12 +15,14 @@ const VERT = /* glsl */ `
   }
 `;
 
-// Procedural fire: domain-warped fbm noise scrolling up, shaped into a flame
-// tongue with a white-hot base → orange → red tip. Additive.
+// Procedural fire jet: thin at the nozzle, a slight bulge low, then a long thin
+// taper to the tip. It ignites from the base upward and, when extinguishing,
+// the base cuts off first while the remaining licks rise and fade at the tip.
 const FRAG = /* glsl */ `
   precision mediump float;
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uProgress; // 0..1 over the burst
   varying vec2 vUv;
 
   float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
@@ -38,24 +40,40 @@ const FRAG = /* glsl */ `
 
   void main(){
     vec2 uv = vUv;
+    float y = uv.y;
     float t = uTime;
-    vec2 q = vec2(uv.x * 2.2, uv.y * 2.6 - t * 1.7);
-    float n = fbm(q + fbm(q * 1.6));
+    // Noise scrolls upward → flame visually travels from base to tip.
+    vec2 q = vec2(uv.x * 2.4, y * 2.8 - t * 2.1);
+    float n = fbm(q + fbm(q * 1.7));
+
+    // Width profile: thin at the nozzle, bulge low, long thin taper to the top.
     float cx = abs(uv.x - 0.5) * 2.0;
-    float taper = 1.0 - uv.y;
-    // Wider body so the flame reads as a full, tall fire.
-    float body = smoothstep(1.0, 0.0, cx / max(0.28, taper * 1.1));
-    float flame = body * (0.55 + 0.6 * n) * taper;
-    flame = clamp(flame * 1.9 - 0.12, 0.0, 1.0);
-    vec3 col = mix(vec3(1.0, 0.12, 0.0), vec3(1.0, 0.58, 0.05), smoothstep(0.0, 0.5, flame));
-    col = mix(col, vec3(1.0, 0.95, 0.72), smoothstep(0.55, 1.0, flame));
+    float widthEnv = (0.16 + 0.84 * smoothstep(0.0, 0.2, y)) * pow(max(0.0, 1.0 - y), 0.72);
+    float body = smoothstep(1.0, 0.0, cx / max(0.05, widthEnv * 0.6));
+    float flame = body * (0.5 + 0.7 * n);
+
+    // Directional ignite (grows bottom→top) and extinguish (base cuts, rises).
+    float ignite = smoothstep(0.0, 0.18, uProgress);
+    float topReach = mix(0.2, 1.0, ignite);
+    float baseCut = smoothstep(0.58, 1.0, uProgress) * 0.95;
+    float topMask = 1.0 - smoothstep(topReach - 0.22, topReach, y);
+    float baseMask = smoothstep(baseCut, baseCut + 0.12, y);
+    flame *= topMask * baseMask;
+
+    flame = clamp(flame * 1.85 - 0.12, 0.0, 1.0);
+
+    // Heat: white-hot low → orange → red tip.
+    float heat = flame * (1.0 - y * 0.35);
+    vec3 col = mix(vec3(0.9, 0.06, 0.0), vec3(1.0, 0.5, 0.04), smoothstep(0.0, 0.45, heat));
+    col = mix(col, vec3(1.0, 0.93, 0.7), smoothstep(0.6, 1.0, heat));
+
     float alpha = flame * uOpacity;
     if (alpha < 0.01) discard;
     gl_FragColor = vec4(col, alpha);
   }
 `;
 
-/** A stylised fire jet (shader flame + a flickering light), via `flame_burst`. */
+/** A realistic fire jet (thin/long shader flame + a flickering light), via `flame_burst`. */
 export function FlameEffect({ object }: { object: SceneObject }) {
   const showRef = useShowStateRef();
   const groupRef = useRef<THREE.Group>(null);
@@ -65,7 +83,7 @@ export function FlameEffect({ object }: { object: SceneObject }) {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uProgress: { value: 0 } },
         vertexShader: VERT,
         fragmentShader: FRAG,
         transparent: true,
@@ -81,6 +99,7 @@ export function FlameEffect({ object }: { object: SceneObject }) {
     const t = clock.elapsedTime;
     material.uniforms.uTime.value = t;
     material.uniforms.uOpacity.value = env;
+    material.uniforms.uProgress.value = burst ? burst.progress : 0;
     const on = env > 0.001;
     if (groupRef.current) {
       groupRef.current.visible = on;
@@ -103,8 +122,8 @@ export function FlameEffect({ object }: { object: SceneObject }) {
     <>
       <EmitterBody color={object.color} />
       <group ref={groupRef} visible={false}>
-        <mesh position={[0, 2.1, 0]} material={material} raycast={ignoreRaycast}>
-          <planeGeometry args={[2.2, 4.2]} />
+        <mesh position={[0, 2.3, 0]} material={material} raycast={ignoreRaycast}>
+          <planeGeometry args={[1.5, 4.6]} />
         </mesh>
         <pointLight ref={lightRef} position={[0, 1.2, 0]} color="#ff7a1e" distance={12} decay={1.3} intensity={0} />
       </group>
