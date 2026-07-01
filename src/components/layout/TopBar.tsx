@@ -4,6 +4,7 @@ import { formatTime } from '../../utils/audio';
 import { downloadProject } from '../../utils/project';
 import { Icon } from '../ui/Icon';
 import { LoadProjectModal } from './LoadProjectModal';
+import { APP_VERSION } from '../../version';
 
 /** Isolated so the per-frame time update only re-renders this tiny node. */
 function TransportClock() {
@@ -54,7 +55,9 @@ export function TopBar() {
           <div className="text-sm font-bold tracking-tight text-white">
             ShowForge <span className="text-accent-cyan">Studio</span>
           </div>
-          <div className="text-[10px] uppercase tracking-widest text-slate-600">3D Show Designer</div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-600">
+            3D Show Designer <span className="text-slate-700">· v{APP_VERSION}</span>
+          </div>
         </div>
       </div>
 
