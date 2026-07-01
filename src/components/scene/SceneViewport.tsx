@@ -2,6 +2,7 @@ import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { KernelSize } from 'postprocessing';
 import * as THREE from 'three';
 import { StageScene } from './StageScene';
 import { useShowStore } from '../../store/useShowStore';
@@ -68,15 +69,15 @@ export function SceneViewport() {
         />
         {bloom && (
           <EffectComposer>
-            {/* Gentle, stable bloom: high threshold so only genuinely bright
-                beams glow (mid-tones no longer flip across the threshold), soft
-                smoothing to avoid popping, modest intensity. */}
+            {/* Gentle, temporally-stable bloom. No mipmapBlur: its per-frame mip
+                selection shimmers on moving bright features (beams/lasers/LED),
+                which is the main cause of flicker during playback. A plain
+                large-kernel blur with a high threshold + smoothing is steadier. */}
             <Bloom
-              mipmapBlur
-              intensity={0.55}
-              luminanceThreshold={0.7}
-              luminanceSmoothing={0.5}
-              radius={0.6}
+              intensity={0.5}
+              luminanceThreshold={0.72}
+              luminanceSmoothing={0.6}
+              kernelSize={KernelSize.LARGE}
             />
             <Vignette eskil={false} offset={0.28} darkness={0.7} />
           </EffectComposer>

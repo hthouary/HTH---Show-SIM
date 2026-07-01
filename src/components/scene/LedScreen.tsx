@@ -37,15 +37,15 @@ const FRAG = /* glsl */ `
     float b = bars(uv, t);
     float grid = step(0.92, fract(uv.x * 40.0)) + step(0.92, fract(uv.y * 22.0));
 
-    float energy = mix(0.25, 1.0, uLevel);
+    float energy = mix(0.3, 0.85, uLevel);
     float pat = mix(wave, b, 0.5) * energy;
-    pat += uPulse * 0.8;
-    pat = clamp(pat, 0.0, 1.4);
+    pat += uPulse * 0.35;
+    pat = clamp(pat, 0.0, 1.0);
 
-    vec3 col = uColor * (0.4 + pat);
-    col += uColor * grid * 0.25;
-    // subtle scanline
-    col *= 0.85 + 0.15 * sin(uv.y * 220.0);
+    vec3 col = uColor * (0.28 + pat * 0.6);
+    col += uColor * grid * 0.15;
+    // Gentle, low-frequency scanline (high frequencies cause moiré/shimmer in motion).
+    col *= 0.94 + 0.06 * sin(uv.y * 60.0);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -74,8 +74,8 @@ export function LedScreen() {
   useFrame((_, delta) => {
     const led = showRef.current.led;
     const black = 1 - showRef.current.blackout;
-    // Freeze the wall animation when paused so the scene is fully static.
-    if (useShowStore.getState().isPlaying) uniforms.uTime.value += delta;
+    // Freeze the wall animation when paused; run it slowly while playing.
+    if (useShowStore.getState().isPlaying) uniforms.uTime.value += delta * 0.6;
     uniforms.uColor.value.setRGB(led.color[0] * black, led.color[1] * black, led.color[2] * black);
     uniforms.uPulse.value = led.pulse * black;
     // Smoothly follow the music level.
