@@ -89,7 +89,7 @@ export function InspectorPanel() {
   const t = useT();
 
   return (
-    <aside className="flex w-[19rem] shrink-0 flex-col border-l border-ink-700/70 bg-ink-900">
+    <aside className="flex h-full w-full shrink-0 flex-col border-l border-ink-700/70 bg-ink-900 md:w-[19rem]">
       <div className="panel-header border-b">
         <Icon name="target" size={14} />
         {t('inspector.title')}

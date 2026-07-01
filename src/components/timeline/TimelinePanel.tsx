@@ -162,8 +162,8 @@ export function TimelinePanel() {
 
   return (
     <section className="flex h-[232px] shrink-0 flex-col border-t border-ink-700/70 bg-ink-900">
-      {/* Header */}
-      <div className="flex h-10 shrink-0 items-center gap-3 border-b border-ink-700/70 px-3">
+      {/* Header (scrolls horizontally on narrow / mobile screens) */}
+      <div className="flex h-10 shrink-0 items-center gap-3 overflow-x-auto border-b border-ink-700/70 px-3">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           <Icon name="music" size={14} /> {t('timeline.title')}
         </div>
@@ -176,7 +176,7 @@ export function TimelinePanel() {
       {/* Body: labels + lanes */}
       <div className="flex min-h-0 flex-1">
         {/* Left label column */}
-        <div className="w-36 shrink-0 border-r border-ink-700/70 bg-ink-850">
+        <div className="w-24 shrink-0 border-r border-ink-700/70 bg-ink-850 md:w-36">
           <div style={{ height: RULER_H }} />
           <div
             className="flex items-center gap-1.5 border-b border-ink-700/70 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500"

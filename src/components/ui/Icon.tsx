@@ -38,7 +38,8 @@ export type IconName =
   | 'undo'
   | 'redo'
   | 'magnet'
-  | 'grid';
+  | 'grid'
+  | 'menu';
 
 const PATHS: Record<IconName, JSX.Element> = {
   play: <path d="M6 4l14 8-14 8z" />,
@@ -231,6 +232,13 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />
       <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  menu: (
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
     </>
   ),
 };

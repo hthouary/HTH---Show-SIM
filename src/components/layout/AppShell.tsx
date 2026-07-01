@@ -4,9 +4,28 @@ import { LeftPanel } from './LeftPanel';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { SceneViewport } from '../scene/SceneViewport';
 import { TimelinePanel } from '../timeline/TimelinePanel';
+import { MobileShell } from './MobileShell';
 import { Toasts } from '../ui/Toasts';
 import { usePlaybackClock } from '../../utils/usePlaybackClock';
+import { useIsMobile } from '../../utils/useIsMobile';
 import { useShowStore } from '../../store/useShowStore';
+
+/** Desktop layout: top bar, left/center/right columns, bottom timeline. */
+function DesktopShell() {
+  return (
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
+      <TopBar />
+      <div className="flex min-h-0 flex-1">
+        <LeftPanel />
+        <main className="relative min-w-0 flex-1">
+          <SceneViewport />
+        </main>
+        <InspectorPanel />
+      </div>
+      <TimelinePanel />
+    </div>
+  );
+}
 
 export function AppShell() {
   usePlaybackClock();
@@ -53,18 +72,12 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [togglePlay, deleteObject, selectedObjectId, undo, redo, setGizmoMode]);
 
+  const isMobile = useIsMobile();
+
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
-      <TopBar />
-      <div className="flex min-h-0 flex-1">
-        <LeftPanel />
-        <main className="relative min-w-0 flex-1">
-          <SceneViewport />
-        </main>
-        <InspectorPanel />
-      </div>
-      <TimelinePanel />
+    <>
+      {isMobile ? <MobileShell /> : <DesktopShell />}
       <Toasts />
-    </div>
+    </>
   );
 }

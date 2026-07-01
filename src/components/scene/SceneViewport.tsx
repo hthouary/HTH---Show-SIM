@@ -64,8 +64,8 @@ function ViewportOverlay({
 
   return (
     <>
-      {/* Top-left hint chip */}
-      <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-lg border border-ink-700/70 bg-ink-900/70 px-2.5 py-1.5 text-[11px] text-slate-400 backdrop-blur">
+      {/* Top-left hint chip (hidden on phones to keep the small viewport clear) */}
+      <div className="pointer-events-none absolute left-3 top-3 hidden items-center gap-2 rounded-lg border border-ink-700/70 bg-ink-900/70 px-2.5 py-1.5 text-[11px] text-slate-400 backdrop-blur md:flex">
         <Icon name="eye" size={13} className="text-accent-cyan" />
         <span>{t('viewport.hint')}</span>
       </div>
@@ -89,8 +89,8 @@ function ViewportOverlay({
         </div>
       )}
 
-      {/* Top-right view toggles */}
-      <div className="absolute right-3 top-3 flex items-center gap-2">
+      {/* Top-right view toggles (wrap on narrow screens so they stay on-screen) */}
+      <div className="absolute right-3 top-3 flex max-w-[70vw] flex-wrap items-center justify-end gap-2 md:max-w-none md:flex-nowrap">
         <ToggleButton
           active={collisions}
           onClick={toggleCollisions}

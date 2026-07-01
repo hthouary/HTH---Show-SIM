@@ -11,6 +11,12 @@ const en: Dict = {
   'app.subtitle': '3D Show Designer',
   'common.close': 'Close',
 
+  'nav.scene': 'Scene',
+  'nav.library': 'Objects',
+  'nav.timeline': 'Timeline',
+  'nav.inspector': 'Edit',
+  'nav.menu': 'Menu',
+
   'action.new': 'New',
   'action.save': 'Save',
   'action.load': 'Load',
@@ -223,6 +229,12 @@ const en: Dict = {
 const fr: Dict = {
   'app.subtitle': 'Concepteur de show 3D',
   'common.close': 'Fermer',
+
+  'nav.scene': 'Scène',
+  'nav.library': 'Objets',
+  'nav.timeline': 'Timeline',
+  'nav.inspector': 'Réglages',
+  'nav.menu': 'Menu',
 
   'action.new': 'Nouveau',
   'action.save': 'Enregistrer',
