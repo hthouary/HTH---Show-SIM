@@ -31,7 +31,8 @@ const CATEGORY_ACCENT: Record<LibraryCategory, string> = {
 };
 
 export function ObjectLibrary() {
-  const addObject = useShowStore((s) => s.addObject);
+  const setPlacementType = useShowStore((s) => s.setPlacementType);
+  const placementType = useShowStore((s) => s.placementType);
   const objectCount = useShowStore((s) => s.project.objects.length);
 
   return (
@@ -51,32 +52,51 @@ export function ObjectLibrary() {
               {CATEGORY_LABELS[cat]}
             </h3>
             <div className="flex flex-col gap-1">
-              {CATALOG.filter((e) => e.category === cat).map((entry) => (
-                <button
-                  key={entry.type}
-                  onClick={() => addObject(entry.type)}
-                  className="group flex items-center gap-2.5 rounded-lg border border-transparent bg-ink-800/60 px-2.5 py-2 text-left transition-colors hover:border-ink-600 hover:bg-ink-750"
-                  title={`Add ${entry.label}`}
-                >
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink-700 text-slate-300 group-hover:text-accent-cyan">
-                    <Icon name={OBJECT_ICONS[entry.type]} size={15} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium text-slate-200">{entry.label}</span>
-                    <span className="block truncate text-[10px] text-slate-500">{entry.hint}</span>
-                  </span>
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-slate-600 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Icon name="plus" size={14} />
-                  </span>
-                </button>
-              ))}
+              {CATALOG.filter((e) => e.category === cat).map((entry) => {
+                const armed = placementType === entry.type;
+                return (
+                  <button
+                    key={entry.type}
+                    onClick={() => setPlacementType(entry.type)}
+                    className={`group flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                      armed
+                        ? 'border-accent-cyan/60 bg-accent-cyan/10'
+                        : 'border-transparent bg-ink-800/60 hover:border-ink-600 hover:bg-ink-750'
+                    }`}
+                    title={`Click, then click in the scene to place ${entry.label}`}
+                  >
+                    <span
+                      className={`grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink-700 ${
+                        armed ? 'text-accent-cyan' : 'text-slate-300 group-hover:text-accent-cyan'
+                      }`}
+                    >
+                      <Icon name={OBJECT_ICONS[entry.type]} size={15} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium text-slate-200">{entry.label}</span>
+                      <span className="block truncate text-[10px] text-slate-500">
+                        {armed ? 'Click in the scene to place…' : entry.hint}
+                      </span>
+                    </span>
+                    <span
+                      className={`grid h-5 w-5 shrink-0 place-items-center rounded transition-opacity ${
+                        armed ? 'text-accent-cyan opacity-100' : 'text-slate-600 opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
+                      <Icon name="plus" size={14} />
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </section>
         ))}
       </div>
 
       <div className="border-t border-ink-700/70 px-3 py-2 text-[10px] leading-relaxed text-slate-600">
-        Click any item to drop it into the scene, then tune it in the Inspector.
+        {placementType
+          ? 'Click in the scene to place it — press Esc to cancel.'
+          : 'Click an item, then click in the scene to place it. Drag the arrows to move a selected object.'}
       </div>
     </aside>
   );

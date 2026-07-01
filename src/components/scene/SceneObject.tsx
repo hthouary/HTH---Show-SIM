@@ -1,8 +1,10 @@
-import { useRef } from 'react';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useState } from 'react';
+import { TransformControls } from '@react-three/drei';
+import { type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject as SceneObjectModel } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
+import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { LightFixture } from './LightFixture';
 import { LaserFixture } from './LaserFixture';
 import { LedScreen } from './LedScreen';
@@ -47,56 +49,62 @@ function renderBody(object: SceneObjectModel) {
   }
 }
 
-/** A pulsing ground ring drawn under the selected object as a gizmo footprint. */
-function SelectionRing({ position }: { position: [number, number, number] }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      const s = 1 + Math.sin(clock.elapsedTime * 4) * 0.06;
-      ref.current.scale.setScalar(s);
-    }
-  });
-  return (
-    <group ref={ref} position={position}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.9, 1.05, 48]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.9} toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.05, 48]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.07} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
+const round = (n: number) => Math.round(n * 10) / 10;
 
 export function SceneObject({ object }: { object: SceneObjectModel }) {
   const selectObject = useShowStore((s) => s.selectObject);
+  const moveObject = useShowStore((s) => s.moveObject);
+  const addObjectAt = useShowStore((s) => s.addObjectAt);
+  const placementType = useShowStore((s) => s.placementType);
   const selected = useShowStore((s) => s.selectedObjectId === object.id);
+
+  const [node, setNode] = useState<THREE.Group | null>(null);
+
+  // In placement mode a click drops the armed object at the clicked point.
+  const placeAt = (point: THREE.Vector3) => {
+    if (!placementType) return;
+    const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
+    addObjectAt(placementType, [round(point.x), defY, round(point.z)]);
+  };
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    selectObject(object.id);
+    if (placementType) placeAt(e.point);
+    else selectObject(object.id);
   };
+
+  const showGizmo = selected && !placementType;
 
   return (
     <>
       <group
+        ref={setNode}
         position={object.position}
         rotation={object.rotation}
         scale={object.scale}
         onClick={handleClick}
         onPointerOver={(e) => {
           e.stopPropagation();
-          document.body.style.cursor = 'pointer';
+          if (!placementType) document.body.style.cursor = 'pointer';
         }}
         onPointerOut={() => {
-          document.body.style.cursor = 'default';
+          if (!placementType) document.body.style.cursor = 'default';
         }}
       >
         {renderBody(object)}
       </group>
-      {selected && <SelectionRing position={[object.position[0], 0.04, object.position[2]]} />}
+
+      {showGizmo && node && (
+        <TransformControls
+          object={node}
+          mode="translate"
+          size={0.85}
+          onMouseUp={() => {
+            const p = node.position;
+            moveObject(object.id, [p.x, p.y, p.z]);
+          }}
+        />
+      )}
     </>
   );
 }

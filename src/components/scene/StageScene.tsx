@@ -1,16 +1,32 @@
 import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { useShowStore } from '../../store/useShowStore';
+import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { evaluateEvents } from '../../utils/events';
 import { ShowStateContext, type ShowStateRef } from './ShowStateContext';
 import { SceneObject } from './SceneObject';
+
+const round = (n: number) => Math.round(n * 10) / 10;
 
 export function StageScene({ workLight = false }: { workLight?: boolean }) {
   const objects = useShowStore((s) => s.project.objects);
   const events = useShowStore((s) => s.project.events);
   const fog = useShowStore((s) => s.project.settings.fog);
+  const placementType = useShowStore((s) => s.placementType);
+  const addObjectAt = useShowStore((s) => s.addObjectAt);
+  const selectObject = useShowStore((s) => s.selectObject);
+
+  const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (placementType) {
+      const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
+      addObjectAt(placementType, [round(e.point.x), defY, round(e.point.z)]);
+    } else {
+      selectObject(null);
+    }
+  };
 
   const showRef = useRef(evaluateEvents(events, 0)) as ShowStateRef;
   const ambientRef = useRef<THREE.AmbientLight>(null);
@@ -53,8 +69,8 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
         </group>
       )}
 
-      {/* Floor + grid */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      {/* Floor + grid (also the placement / deselect click target) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow onClick={onFloorClick}>
         <planeGeometry args={[120, 120]} />
         <meshStandardMaterial color="#04050a" metalness={0.4} roughness={0.85} />
       </mesh>

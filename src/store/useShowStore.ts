@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { Project, SceneObject, SceneObjectType, ShowEvent, TrackId } from '../types/show';
+import type { Project, SceneObject, SceneObjectType, ShowEvent, TrackId, Vec3 } from '../types/show';
 import { CATALOG_BY_TYPE, createId, createSceneObject, defaultEventParams } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
+import { resolvePlacement } from '../utils/collision';
 import {
   getLastProjectId,
   loadProject as loadProjectFromStorage,
@@ -34,13 +35,24 @@ interface ShowState {
 
   // ---- Transient UI ---------------------------------------------------
   toasts: Toast[];
+  /** When set, the next click in the scene places an object of this type. */
+  placementType: SceneObjectType | null;
+  /** Whether floor / object collisions are enforced while placing / moving. */
+  collisions: boolean;
 
   // ---- Object actions -------------------------------------------------
   addObject: (type: SceneObjectType) => void;
+  addObjectAt: (type: SceneObjectType, position: Vec3) => void;
   updateObject: (id: string, patch: Partial<SceneObject>) => void;
+  moveObject: (id: string, position: Vec3) => void;
   deleteObject: (id: string) => void;
   duplicateObject: (id: string) => void;
   selectObject: (id: string | null) => void;
+
+  // ---- Placement / editor ---------------------------------------------
+  setPlacementType: (type: SceneObjectType | null) => void;
+  cancelPlacement: () => void;
+  toggleCollisions: () => void;
 
   // ---- Event actions --------------------------------------------------
   addEvent: (track: TrackId, type: string, atTime?: number) => void;
@@ -96,6 +108,8 @@ export const useShowStore = create<ShowState>((set, get) => {
     duration: startProject.settings.duration,
     hasAudio: false,
     toasts: [],
+    placementType: null,
+    collisions: false,
 
     // ---------------------------------------------------------------- Objects
     addObject: (type) => {
@@ -107,6 +121,19 @@ export const useShowStore = create<ShowState>((set, get) => {
       get().pushToast('success', `Added ${CATALOG_BY_TYPE[type].label}`);
     },
 
+    addObjectAt: (type, position) => {
+      const s = get();
+      const pos = resolvePlacement(s.project.objects, null, type, 1, position, s.collisions);
+      const obj = createSceneObject(type, { position: pos });
+      set((st) => ({
+        project: { ...st.project, objects: [...st.project.objects, obj], updatedAt: Date.now() },
+        selectedObjectId: obj.id,
+        selectedEventId: null,
+        placementType: null,
+      }));
+      get().pushToast('success', `Placed ${CATALOG_BY_TYPE[type].label}`);
+    },
+
     updateObject: (id, patch) =>
       set((s) => ({
         project: {
@@ -115,6 +142,23 @@ export const useShowStore = create<ShowState>((set, get) => {
           updatedAt: Date.now(),
         },
       })),
+
+    moveObject: (id, position) =>
+      set((s) => {
+        const obj = s.project.objects.find((o) => o.id === id);
+        if (!obj) return {};
+        const pos = resolvePlacement(s.project.objects, id, obj.type, obj.scale, position, s.collisions);
+        // Move the aim target along with the fixture so its beam keeps its angle.
+        const delta: Vec3 = [pos[0] - obj.position[0], pos[1] - obj.position[1], pos[2] - obj.position[2]];
+        const target: Vec3 = [obj.target[0] + delta[0], obj.target[1] + delta[1], obj.target[2] + delta[2]];
+        return {
+          project: {
+            ...s.project,
+            objects: s.project.objects.map((o) => (o.id === id ? { ...o, position: pos, target } : o)),
+            updatedAt: Date.now(),
+          },
+        };
+      }),
 
     deleteObject: (id) =>
       set((s) => ({
@@ -144,6 +188,16 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     selectObject: (id) => set({ selectedObjectId: id, selectedEventId: null }),
+
+    // ------------------------------------------------------------ Placement
+    setPlacementType: (type) =>
+      set((s) => ({ placementType: s.placementType === type ? null : type })),
+    cancelPlacement: () => set({ placementType: null }),
+    toggleCollisions: () => {
+      const next = !get().collisions;
+      set({ collisions: next });
+      get().pushToast('info', `Collisions ${next ? 'enabled' : 'disabled'}`);
+    },
 
     // ----------------------------------------------------------------- Events
     addEvent: (track, type, atTime) => {
