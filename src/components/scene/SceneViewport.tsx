@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
@@ -7,7 +7,7 @@ import { StageScene } from './StageScene';
 import { useShowStore } from '../../store/useShowStore';
 import { Icon } from '../ui/Icon';
 
-function ViewportOverlay() {
+function ViewportOverlay({ bloom, onToggleBloom }: { bloom: boolean; onToggleBloom: () => void }) {
   const objectCount = useShowStore((s) => s.project.objects.length);
   return (
     <>
@@ -16,6 +16,19 @@ function ViewportOverlay() {
         <Icon name="eye" size={13} className="text-accent-cyan" />
         <span>Drag to orbit · Scroll to zoom · Click to select</span>
       </div>
+      {/* Top-right: bloom / glow toggle (turn off if the display flickers) */}
+      <button
+        onClick={onToggleBloom}
+        className={`absolute right-3 top-3 flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+          bloom
+            ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan'
+            : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
+        }`}
+        title="Toggle bloom / glow. Turn off if your display flickers."
+      >
+        <Icon name="sparkles" size={13} />
+        Glow: {bloom ? 'On' : 'Off'}
+      </button>
       {objectCount === 0 && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="rounded-xl border border-ink-700 bg-ink-900/80 px-6 py-4 text-center text-sm text-slate-400 backdrop-blur">
@@ -30,6 +43,7 @@ function ViewportOverlay() {
 
 export function SceneViewport() {
   const selectObject = useShowStore((s) => s.selectObject);
+  const [bloom, setBloom] = useState(true);
 
   return (
     <div className="relative h-full w-full bg-gradient-to-b from-[#070912] to-[#03040a]">
@@ -52,21 +66,23 @@ export function SceneViewport() {
           maxDistance={60}
           maxPolarAngle={Math.PI / 2 - 0.02}
         />
-        <EffectComposer>
-          {/* Gentle, stable bloom: high threshold so only genuinely bright beams
-              glow (mid-tones no longer flip across the threshold), soft
-              smoothing to avoid popping, modest intensity. */}
-          <Bloom
-            mipmapBlur
-            intensity={0.55}
-            luminanceThreshold={0.7}
-            luminanceSmoothing={0.5}
-            radius={0.6}
-          />
-          <Vignette eskil={false} offset={0.28} darkness={0.7} />
-        </EffectComposer>
+        {bloom && (
+          <EffectComposer>
+            {/* Gentle, stable bloom: high threshold so only genuinely bright
+                beams glow (mid-tones no longer flip across the threshold), soft
+                smoothing to avoid popping, modest intensity. */}
+            <Bloom
+              mipmapBlur
+              intensity={0.55}
+              luminanceThreshold={0.7}
+              luminanceSmoothing={0.5}
+              radius={0.6}
+            />
+            <Vignette eskil={false} offset={0.28} darkness={0.7} />
+          </EffectComposer>
+        )}
       </Canvas>
-      <ViewportOverlay />
+      <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
     </div>
   );
 }
