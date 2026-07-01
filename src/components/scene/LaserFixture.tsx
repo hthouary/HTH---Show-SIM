@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { laserColorForObject } from '../../utils/events';
+import { movementRotation, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { ignoreRaycast } from './interaction';
@@ -19,6 +20,7 @@ const BEAM_COUNT = 11;
 export function LaserFixture({ object }: { object: SceneObject }) {
   const showRef = useShowStateRef();
   const fanRef = useRef<THREE.Group>(null);
+  const moveRef = useRef<THREE.Group>(null);
 
   const { baseQuat, coreGeo, glowGeo, spreads, coreMat, glowMat, dotMat } = useMemo(() => {
     const rel = new THREE.Vector3(
@@ -64,8 +66,9 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     const on = state.laser.active && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
     const playing = useShowStore.getState().isPlaying;
+    const t = clock.elapsedTime;
     // Steady beams, only a very slow shimmer while playing (frozen when paused).
-    const shimmer = playing ? 0.97 + Math.sin(clock.elapsedTime * 0.8) * 0.03 : 1;
+    const shimmer = playing ? 0.97 + Math.sin(t * 0.8) * 0.03 : 1;
 
     coreMat.color.copy(tmpColor);
     coreMat.opacity = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
@@ -74,12 +77,22 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     dotMat.color.copy(tmpColor);
     dotMat.opacity = on ? 1 : 0.12;
 
+    // Movement preset steers the whole fan; frozen while paused.
+    const mv = playing
+      ? movementRotation(object.movement, object.movementSpeed, t, movementSeed(object.position))
+      : { x: 0, z: 0, active: false };
+    if (moveRef.current && playing) {
+      moveRef.current.rotation.x = mv.x;
+      moveRef.current.rotation.z = mv.z;
+    }
+
     if (fanRef.current) {
       fanRef.current.visible = on;
-      // Only animate the fan while playing, so a paused scene is completely still.
+      // The fan's own gentle sweep — reduced while a movement preset is steering
+      // it, and only while playing so a paused scene is completely still.
       if (playing) {
-        fanRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.4) * 0.5;
-        fanRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.6) * 0.12;
+        fanRef.current.rotation.y = Math.sin(t * 0.4) * (mv.active ? 0.3 : 0.5);
+        fanRef.current.rotation.x = mv.active ? 0 : Math.sin(t * 0.6) * 0.12;
       }
     }
   });
@@ -97,13 +110,15 @@ export function LaserFixture({ object }: { object: SceneObject }) {
 
       {/* Laser beams are not selectable — clicks pass through to objects behind. */}
       <group quaternion={baseQuat}>
-        <group ref={fanRef}>
-          {spreads.map((s, i) => (
-            <group key={i} rotation={[0, 0, s]}>
-              <mesh geometry={glowGeo} material={glowMat} raycast={ignoreRaycast} />
-              <mesh geometry={coreGeo} material={coreMat} raycast={ignoreRaycast} />
-            </group>
-          ))}
+        <group ref={moveRef}>
+          <group ref={fanRef}>
+            {spreads.map((s, i) => (
+              <group key={i} rotation={[0, 0, s]}>
+                <mesh geometry={glowGeo} material={glowMat} raycast={ignoreRaycast} />
+                <mesh geometry={coreGeo} material={coreMat} raycast={ignoreRaycast} />
+              </group>
+            ))}
+          </group>
         </group>
       </group>
     </group>

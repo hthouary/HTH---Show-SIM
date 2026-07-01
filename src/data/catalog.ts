@@ -253,6 +253,8 @@ const DEFAULT_OBJECT: Omit<SceneObject, 'id' | 'type' | 'name'> = {
   intensity: 1,
   beamAngle: 12,
   target: [0, 0, 4],
+  movement: 'fixed',
+  movementSpeed: 0,
 };
 
 /** Build a fresh SceneObject from the catalog defaults for a given type. */

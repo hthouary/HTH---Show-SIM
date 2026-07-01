@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { lightForObject } from '../../utils/events';
+import { movementRotation, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { makeBeamMaterial } from './beam';
@@ -100,12 +101,18 @@ export function LightFixture({ object }: Props) {
       flareRef.current.scale.setScalar(s);
     }
 
-    // Sweep / idle sway — pivots from the lens like a real moving head.
-    // The idle sway only runs while playing so a paused scene is dead still.
+    // Movement preset + event sweep + subtle idle sway — pivots from the lens
+    // like a real moving head. All motion freezes while paused so a paused
+    // scene is dead still. When a movement preset is active it replaces the
+    // idle sway; the event-driven sweep is always layered on top.
     if (swingRef.current) {
-      const sway = playing ? Math.sin(t * 0.8 + object.position[0]) * 0.045 : 0;
-      swingRef.current.rotation.z = light.sweep * 0.4 + sway;
-      swingRef.current.rotation.x = playing ? Math.sin(t * 0.5 + object.position[2]) * 0.045 : 0;
+      const mv = playing
+        ? movementRotation(object.movement, object.movementSpeed, t, movementSeed(object.position))
+        : { x: 0, z: 0, active: false };
+      const swayZ = playing && !mv.active ? Math.sin(t * 0.8 + object.position[0]) * 0.045 : 0;
+      const swayX = playing && !mv.active ? Math.sin(t * 0.5 + object.position[2]) * 0.045 : 0;
+      swingRef.current.rotation.z = light.sweep * 0.4 + mv.z + swayZ;
+      swingRef.current.rotation.x = mv.x + swayX;
     }
   });
 

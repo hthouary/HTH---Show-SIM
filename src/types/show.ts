@@ -34,6 +34,12 @@ export type TrackId = 'lights' | 'lasers' | 'fx' | 'led';
 
 export type Vec3 = [number, number, number];
 
+/**
+ * Simple beam-movement preset for light / laser fixtures. Combined with a
+ * 0..100 speed dial to drive a continuous, per-object motion.
+ */
+export type MovementPreset = 'fixed' | 'circular' | 'wave' | 'up_down' | 'left_right';
+
 /** A single object placed in the 3D scene. */
 export interface SceneObject {
   id: string;
@@ -49,6 +55,10 @@ export interface SceneObject {
   beamAngle: number;
   /** Aim point used by moving heads / lasers (world space). */
   target: Vec3;
+  /** Beam movement preset (light / laser fixtures). Defaults to 'fixed'. */
+  movement?: MovementPreset;
+  /** Movement speed, 0 (still) .. 100 (very fast). Defaults to 0. */
+  movementSpeed?: number;
   /** Hidden in the viewport (still listed in the Outliner). */
   hidden?: boolean;
 }

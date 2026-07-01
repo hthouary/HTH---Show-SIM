@@ -35,6 +35,8 @@ export function createDemoProject(): Project {
         target: [x * 0.4, 0, 4],
         color: '#22d3ee',
         beamAngle: 6,
+        movement: 'circular',
+        movementSpeed: 32,
       }),
     );
     movingHeadIds.push(o.id);
@@ -48,6 +50,8 @@ export function createDemoProject(): Project {
         target: [x * 0.5, 0, 3],
         color: '#8b5cf6',
         beamAngle: 18,
+        movement: 'wave',
+        movementSpeed: 26,
       }),
     );
     movingHeadIds.push(o.id);
@@ -63,6 +67,8 @@ export function createDemoProject(): Project {
         target: [x * 0.2, 0, 2],
         color: i % 2 === 0 ? '#3b82f6' : '#e64bd6',
         beamAngle: 3.5,
+        movement: 'up_down',
+        movementSpeed: 40,
       }),
     );
   }
@@ -74,6 +80,8 @@ export function createDemoProject(): Project {
       position: [-6, 5.6, -3],
       target: [2, 1.5, 10],
       color: '#39ff14',
+      movement: 'left_right',
+      movementSpeed: 30,
     }),
   );
   add(
@@ -82,6 +90,8 @@ export function createDemoProject(): Project {
       position: [6, 5.6, -3],
       target: [-2, 1.5, 10],
       color: '#22d3ee',
+      movement: 'left_right',
+      movementSpeed: 30,
     }),
   );
 
