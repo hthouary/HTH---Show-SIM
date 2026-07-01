@@ -3,6 +3,26 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 
+/**
+ * Small physical body for an FX machine (smoke / flame / CO2 / confetti). The
+ * particle effects themselves aren't selectable, so this box is what you click
+ * to select and move the machine — and it makes the rig visible on the floor.
+ */
+export function EmitterBody({ color }: { color: string }) {
+  return (
+    <group>
+      <mesh position={[0, -0.05, 0]}>
+        <boxGeometry args={[0.55, 0.34, 0.65]} />
+        <meshStandardMaterial color="#15181f" metalness={0.6} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.13, 0]}>
+        <boxGeometry args={[0.32, 0.05, 0.42]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.35} />
+      </mesh>
+    </group>
+  );
+}
+
 /** Raised stage deck. */
 export function StagePlatform({ object }: { object: SceneObject }) {
   return (

@@ -4,6 +4,8 @@ import type { SceneObject } from '../../types/show';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor, disposeParticles, makeParticles } from './particles';
 import { getSmokeTexture } from './textures';
+import { ignoreRaycast } from './interaction';
+import { EmitterBody } from './props';
 
 const COUNT = 80;
 const TAU = Math.PI * 2;
@@ -50,5 +52,10 @@ export function CO2Effect({ object }: { object: SceneObject }) {
     sys.geometry.attributes.aAngle.needsUpdate = true;
   });
 
-  return <points geometry={sys.geometry} material={sys.material} frustumCulled={false} />;
+  return (
+    <>
+      <EmitterBody color={object.color} />
+      <points geometry={sys.geometry} material={sys.material} frustumCulled={false} raycast={ignoreRaycast} />
+    </>
+  );
 }

@@ -5,6 +5,7 @@ import type { SceneObject } from '../../types/show';
 import { laserColorForObject } from '../../utils/events';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
+import { ignoreRaycast } from './interaction';
 
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
@@ -90,16 +91,17 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         <boxGeometry args={[0.3, 0.2, 0.4]} />
         <meshStandardMaterial color="#0c0e14" metalness={0.7} roughness={0.3} />
       </mesh>
-      <mesh position={[0, 0, 0.22]} material={dotMat}>
+      <mesh position={[0, 0, 0.22]} material={dotMat} raycast={ignoreRaycast}>
         <circleGeometry args={[0.05, 16]} />
       </mesh>
 
+      {/* Laser beams are not selectable — clicks pass through to objects behind. */}
       <group quaternion={baseQuat}>
         <group ref={fanRef}>
           {spreads.map((s, i) => (
             <group key={i} rotation={[0, 0, s]}>
-              <mesh geometry={glowGeo} material={glowMat} />
-              <mesh geometry={coreGeo} material={coreMat} />
+              <mesh geometry={glowGeo} material={glowMat} raycast={ignoreRaycast} />
+              <mesh geometry={coreGeo} material={coreMat} raycast={ignoreRaycast} />
             </group>
           ))}
         </group>

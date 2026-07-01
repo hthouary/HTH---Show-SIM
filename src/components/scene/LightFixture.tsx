@@ -7,6 +7,7 @@ import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { makeBeamMaterial } from './beam';
 import { getGlowTexture } from './textures';
+import { ignoreRaycast } from './interaction';
 
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
@@ -128,8 +129,8 @@ export function LightFixture({ object }: Props) {
             <circleGeometry args={[0.13, 24]} />
             <meshStandardMaterial ref={lensRef} color="#ffffff" emissive="#ffffff" emissiveIntensity={1} side={THREE.DoubleSide} />
           </mesh>
-          {/* Camera-facing lens flare */}
-          <sprite ref={flareRef} position={[0, -0.03, 0]} scale={0.6}>
+          {/* Camera-facing lens flare (not selectable — click through it) */}
+          <sprite ref={flareRef} position={[0, -0.03, 0]} scale={0.6} raycast={ignoreRaycast}>
             <spriteMaterial
               map={glowTex}
               color="#ffffff"
@@ -141,8 +142,9 @@ export function LightFixture({ object }: Props) {
             />
           </sprite>
 
-          {/* Volumetric beam cone */}
-          <mesh geometry={coneGeo} material={beamMat} renderOrder={2} />
+          {/* Volumetric beam cone (not selectable — clicks pass through to
+              whatever object is lit underneath it). */}
+          <mesh geometry={coneGeo} material={beamMat} renderOrder={2} raycast={ignoreRaycast} />
 
           <spotLight
             ref={spotRef}
