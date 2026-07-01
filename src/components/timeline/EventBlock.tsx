@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { ShowEvent } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
+import { snapToGrid } from '../../utils/beat';
 
 const TYPE_LABEL: Record<string, string> = {
   light_color: 'Color',
@@ -32,6 +33,9 @@ export function EventBlock({ event, color, duration }: Props) {
   const selectEvent = useShowStore((s) => s.selectEvent);
   const updateEvent = useShowStore((s) => s.updateEvent);
   const selected = useShowStore((s) => s.selectedEventId === event.id);
+  const snapEnabled = useShowStore((s) => s.snapEnabled);
+  const snapDivision = useShowStore((s) => s.snapDivision);
+  const bpm = useShowStore((s) => s.project.settings.bpm ?? 120);
   const drag = useRef<{ startX: number; startTime: number; width: number; moved: boolean } | null>(null);
 
   const left = (event.time / duration) * 100;
@@ -56,8 +60,10 @@ export function EventBlock({ event, color, duration }: Props) {
     const dx = e.clientX - drag.current.startX;
     if (Math.abs(dx) > 2) drag.current.moved = true;
     const dt = (dx / drag.current.width) * duration;
-    const next = Math.max(0, Math.min(duration - event.duration, drag.current.startTime + dt));
-    updateEvent(event.id, { time: Math.round(next * 10) / 10 });
+    let next = drag.current.startTime + dt;
+    next = snapEnabled ? snapToGrid(next, bpm, snapDivision) : Math.round(next * 10) / 10;
+    next = Math.max(0, Math.min(duration - event.duration, next));
+    updateEvent(event.id, { time: next });
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {

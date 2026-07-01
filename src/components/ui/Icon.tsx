@@ -36,7 +36,9 @@ export type IconName =
   | 'eye'
   | 'skip-back'
   | 'undo'
-  | 'redo';
+  | 'redo'
+  | 'magnet'
+  | 'grid';
 
 const PATHS: Record<IconName, JSX.Element> = {
   play: <path d="M6 4l14 8-14 8z" />,
@@ -207,6 +209,22 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M17 8l4 4-4 4" />
       <path d="M21 12H10a5 5 0 1 0 0 10h3" />
+    </>
+  ),
+  magnet: (
+    <>
+      <path d="M6 4H3v8a9 9 0 0 0 18 0V4h-3v8a6 6 0 0 1-12 0z" />
+      <line x1="3" y1="9" x2="6" y2="9" />
+      <line x1="18" y1="9" x2="21" y2="9" />
+    </>
+  ),
+  grid: (
+    <>
+      <line x1="4" y1="3" x2="4" y2="21" />
+      <line x1="10" y1="3" x2="10" y2="21" />
+      <line x1="16" y1="3" x2="16" y2="21" />
+      <line x1="21" y1="8" x2="3" y2="8" />
+      <line x1="21" y1="16" x2="3" y2="16" />
     </>
   ),
   eye: (

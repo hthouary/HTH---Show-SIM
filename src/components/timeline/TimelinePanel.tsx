@@ -5,6 +5,7 @@ import type { TrackId } from '../../types/show';
 import { audioEngine, formatTime } from '../../utils/audio';
 import { Icon } from '../ui/Icon';
 import { AudioControls } from './AudioControls';
+import { BpmControls } from './BpmControls';
 import { EventBlock } from './EventBlock';
 
 const RULER_H = 22;
@@ -71,6 +72,44 @@ function WaveformLane() {
   );
 }
 
+/** Beat / bar grid drawn behind the track lanes. */
+function BeatGrid({ top, height }: { top: number; height: number }) {
+  const duration = useShowStore((s) => s.duration);
+  const bpm = useShowStore((s) => s.project.settings.bpm ?? 120);
+  const show = useShowStore((s) => s.showBeatGrid);
+  const lines = useMemo(() => {
+    if (bpm <= 0 || duration <= 0) return [];
+    const beatDur = 60 / bpm;
+    const totalBeats = Math.floor(duration / beatDur);
+    const drawBeats = totalBeats <= 320;
+    const out: { x: number; bar: boolean }[] = [];
+    for (let b = 0; b <= totalBeats; b++) {
+      const bar = b % 4 === 0;
+      if (!bar && !drawBeats) continue;
+      out.push({ x: (b * beatDur) / duration * 100, bar });
+    }
+    return out;
+  }, [duration, bpm]);
+  if (!show) return null;
+  return (
+    <div className="pointer-events-none absolute left-0 right-0" style={{ top, height }}>
+      <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {lines.map((l, i) => (
+          <line
+            key={i}
+            x1={l.x}
+            y1="0"
+            x2={l.x}
+            y2="100"
+            stroke={l.bar ? '#33465f' : '#1a2432'}
+            strokeWidth={l.bar ? 0.16 : 0.08}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /** Vertical playhead line spanning ruler + all lanes. */
 function Playhead() {
   const currentTime = useShowStore((s) => s.currentTime);
@@ -121,6 +160,7 @@ export function TimelinePanel() {
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           <Icon name="music" size={14} /> Timeline
         </div>
+        <BpmControls />
         <div className="ml-auto flex items-center gap-2">
           <AudioControls />
         </div>
@@ -147,11 +187,12 @@ export function TimelinePanel() {
           <div ref={lanesRef} className="relative h-full cursor-text select-none" onPointerDown={onScrubDown}>
             <Ruler />
             <WaveformLane />
+            <BeatGrid top={RULER_H + WAVE_H} height={TRACKS.length * TRACK_H} />
             {TRACKS.map((track) => (
               <div
                 key={track.id}
                 className="relative border-b border-ink-700/40"
-                style={{ height: TRACK_H, background: 'repeating-linear-gradient(90deg,#0c0e15 0 10%, #0a0c12 10% 20%)' }}
+                style={{ height: TRACK_H }}
               >
                 {events
                   .filter((e) => e.track === track.id)

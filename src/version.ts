@@ -3,5 +3,5 @@
  * live (e.g. on Vercel): it's logged to the console on boot and shown in the
  * top bar, so you can confirm the deployed build matches.
  */
-export const APP_VERSION = '0.2.0';
-export const APP_BUILD = 'undo-outliner-gizmo';
+export const APP_VERSION = '0.2.1';
+export const APP_BUILD = 'beat-grid';

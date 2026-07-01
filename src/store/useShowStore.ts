@@ -4,6 +4,7 @@ import { CATALOG_BY_TYPE, createId, createSceneObject, defaultEventParams } from
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { resolvePlacement } from '../utils/collision';
+import { snapToGrid } from '../utils/beat';
 import {
   getLastProjectId,
   loadProject as loadProjectFromStorage,
@@ -42,6 +43,14 @@ interface ShowState {
   /** Active transform gizmo mode. */
   gizmoMode: 'translate' | 'rotate';
 
+  // ---- Timeline / musical grid ----------------------------------------
+  /** Snap timeline events to the beat grid while placing / dragging. */
+  snapEnabled: boolean;
+  /** Snap step in beats (4 = bar, 1 = beat, 0.5 = 1/2, 0.25 = 1/4). */
+  snapDivision: number;
+  /** Show the beat/bar grid on the timeline. */
+  showBeatGrid: boolean;
+
   // ---- Undo / redo ----------------------------------------------------
   past: Project[];
   future: Project[];
@@ -62,6 +71,10 @@ interface ShowState {
   cancelPlacement: () => void;
   toggleCollisions: () => void;
   setGizmoMode: (mode: 'translate' | 'rotate') => void;
+  setBpm: (bpm: number) => void;
+  toggleSnap: () => void;
+  setSnapDivision: (division: number) => void;
+  toggleBeatGrid: () => void;
 
   // ---- Event actions --------------------------------------------------
   addEvent: (track: TrackId, type: string, atTime?: number) => void;
@@ -140,6 +153,9 @@ export const useShowStore = create<ShowState>((set, get) => {
     placementType: null,
     collisions: false,
     gizmoMode: 'translate',
+    snapEnabled: true,
+    snapDivision: 1,
+    showBeatGrid: true,
     past: [],
     future: [],
 
@@ -168,6 +184,13 @@ export const useShowStore = create<ShowState>((set, get) => {
       }),
 
     setGizmoMode: (mode) => set({ gizmoMode: mode }),
+    setBpm: (bpm) => {
+      const clamped = Math.max(40, Math.min(300, Math.round(bpm)));
+      get().setSettings({ bpm: clamped });
+    },
+    toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+    setSnapDivision: (division) => set({ snapDivision: division }),
+    toggleBeatGrid: () => set((s) => ({ showBeatGrid: !s.showBeatGrid })),
 
     // ---------------------------------------------------------------- Objects
     addObject: (type) => {
@@ -269,10 +292,14 @@ export const useShowStore = create<ShowState>((set, get) => {
     // ----------------------------------------------------------------- Events
     addEvent: (track, type, atTime) => {
       record('add-event');
-      const time = atTime ?? Math.min(get().currentTime, get().duration);
+      const s = get();
+      const raw = atTime ?? Math.min(s.currentTime, s.duration);
+      const time = s.snapEnabled
+        ? snapToGrid(raw, s.project.settings.bpm ?? 120, s.snapDivision)
+        : Math.round(raw * 10) / 10;
       const event: ShowEvent = {
         id: createId('evt'),
-        time: Math.max(0, Math.round(time * 10) / 10),
+        time: Math.max(0, time),
         duration: type.endsWith('_burst') || type === 'blackout' ? 1.2 : 6,
         track,
         type: type as ShowEvent['type'],
