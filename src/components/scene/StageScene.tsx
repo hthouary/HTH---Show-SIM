@@ -45,10 +45,11 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
           scene is easy to see while building — independent of the show state. */}
       {workLight && (
         <group>
-          <ambientLight intensity={0.9} color="#eef3ff" />
-          <hemisphereLight args={['#e6edff', '#3a4152', 0.7]} />
-          <directionalLight position={[10, 16, 8]} intensity={1.2} color="#ffffff" />
-          <directionalLight position={[-9, 11, -6]} intensity={0.55} color="#cfe0ff" />
+          <ambientLight intensity={1.8} color="#eef3ff" />
+          <hemisphereLight args={['#eef3ff', '#4a5060', 1.1]} />
+          <directionalLight position={[10, 16, 8]} intensity={2.4} color="#ffffff" />
+          <directionalLight position={[-9, 11, -6]} intensity={1.1} color="#cfe0ff" />
+          <directionalLight position={[0, 6, 14]} intensity={0.8} color="#ffffff" />
         </group>
       )}
 
