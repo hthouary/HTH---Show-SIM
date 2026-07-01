@@ -1,7 +1,8 @@
-import { CATALOG, CATEGORY_LABELS } from '../../data/catalog';
+import { CATALOG } from '../../data/catalog';
 import type { LibraryCategory, SceneObjectType } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { Icon, type IconName } from '../ui/Icon';
+import { useT } from '../../i18n/useT';
 
 export const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
   stage_platform: 'box',
@@ -34,14 +35,15 @@ export function ObjectLibrary() {
   const setPlacementType = useShowStore((s) => s.setPlacementType);
   const placementType = useShowStore((s) => s.placementType);
   const objectCount = useShowStore((s) => s.project.objects.length);
+  const t = useT();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-ink-900">
       <div className="panel-header border-b">
         <Icon name="box" size={14} />
-        Library
+        {t('library.title')}
         <span className="ml-auto font-mono text-[10px] normal-case tracking-normal text-slate-600">
-          {objectCount} in scene
+          {t('library.count', { n: objectCount })}
         </span>
       </div>
 
@@ -49,11 +51,12 @@ export function ObjectLibrary() {
         {CATEGORY_ORDER.map((cat) => (
           <section key={cat} className="mb-3">
             <h3 className={`mb-1.5 px-1 text-[10px] font-bold uppercase tracking-widest ${CATEGORY_ACCENT[cat]}`}>
-              {CATEGORY_LABELS[cat]}
+              {t(`category.${cat}`)}
             </h3>
             <div className="flex flex-col gap-1">
               {CATALOG.filter((e) => e.category === cat).map((entry) => {
                 const armed = placementType === entry.type;
+                const label = t(`obj.${entry.type}.label`);
                 return (
                   <button
                     key={entry.type}
@@ -63,7 +66,7 @@ export function ObjectLibrary() {
                         ? 'border-accent-cyan/60 bg-accent-cyan/10'
                         : 'border-transparent bg-ink-800/60 hover:border-ink-600 hover:bg-ink-750'
                     }`}
-                    title={`Click, then click in the scene to place ${entry.label}`}
+                    title={t('library.item.title', { label })}
                   >
                     <span
                       className={`grid h-7 w-7 shrink-0 place-items-center rounded-md bg-ink-700 ${
@@ -73,9 +76,9 @@ export function ObjectLibrary() {
                       <Icon name={OBJECT_ICONS[entry.type]} size={15} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-medium text-slate-200">{entry.label}</span>
+                      <span className="block truncate text-xs font-medium text-slate-200">{label}</span>
                       <span className="block truncate text-[10px] text-slate-500">
-                        {armed ? 'Click in the scene to place…' : entry.hint}
+                        {armed ? t('library.item.placing') : t(`obj.${entry.type}.hint`)}
                       </span>
                     </span>
                     <span
@@ -94,9 +97,7 @@ export function ObjectLibrary() {
       </div>
 
       <div className="border-t border-ink-700/70 px-3 py-2 text-[10px] leading-relaxed text-slate-600">
-        {placementType
-          ? 'Click in the scene to place it — press Esc to cancel.'
-          : 'Click an item, then click in the scene to place it. Drag the arrows to move a selected object.'}
+        {placementType ? t('library.placeHint') : t('library.hint')}
       </div>
     </div>
   );

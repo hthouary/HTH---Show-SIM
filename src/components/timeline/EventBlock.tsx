@@ -2,22 +2,7 @@ import { useRef } from 'react';
 import type { ShowEvent } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { snapToGrid } from '../../utils/beat';
-
-const TYPE_LABEL: Record<string, string> = {
-  light_color: 'Color',
-  light_intensity: 'Intensity',
-  light_strobe: 'Strobe',
-  light_sweep: 'Sweep',
-  laser_on: 'Laser',
-  laser_color: 'Color',
-  smoke_burst: 'Smoke',
-  flame_burst: 'Flame',
-  co2_burst: 'CO2',
-  confetti_burst: 'Confetti',
-  led_pulse: 'Pulse',
-  led_color: 'Color',
-  blackout: 'Blackout',
-};
+import { useT } from '../../i18n/useT';
 
 interface Props {
   event: ShowEvent;
@@ -36,6 +21,8 @@ export function EventBlock({ event, color, duration }: Props) {
   const snapEnabled = useShowStore((s) => s.snapEnabled);
   const snapDivision = useShowStore((s) => s.snapDivision);
   const bpm = useShowStore((s) => s.project.settings.bpm ?? 120);
+  const t = useT();
+  const label = t(`evt.short.${event.type}`);
   const drag = useRef<{ startX: number; startTime: number; width: number; moved: boolean } | null>(null);
 
   const left = (event.time / duration) * 100;
@@ -86,13 +73,13 @@ export function EventBlock({ event, color, duration }: Props) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      title={`${TYPE_LABEL[event.type] ?? event.type} · ${event.time.toFixed(1)}s → ${(event.time + event.duration).toFixed(1)}s`}
+      title={`${label} · ${event.time.toFixed(1)}s → ${(event.time + event.duration).toFixed(1)}s`}
     >
       <span
         className="absolute inset-y-0 left-0 w-1"
         style={{ background: color }}
       />
-      <span className="ml-1 block truncate pt-1">{TYPE_LABEL[event.type] ?? event.type}</span>
+      <span className="ml-1 block truncate pt-1">{label}</span>
     </button>
   );
 }

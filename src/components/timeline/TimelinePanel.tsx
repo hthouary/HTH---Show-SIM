@@ -7,10 +7,20 @@ import { Icon } from '../ui/Icon';
 import { AudioControls } from './AudioControls';
 import { BpmControls } from './BpmControls';
 import { EventBlock } from './EventBlock';
+import { useT } from '../../i18n/useT';
 
 const RULER_H = 22;
 const WAVE_H = 40;
 const TRACK_H = 30;
+
+function NoAudioLabel() {
+  const t = useT();
+  return (
+    <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] uppercase tracking-widest text-slate-600">
+      {t('timeline.noAudio')}
+    </span>
+  );
+}
 
 /** Time ruler with second graduations. */
 function Ruler() {
@@ -63,11 +73,7 @@ function WaveformLane() {
           );
         })}
       </svg>
-      {!hasAudio && (
-        <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] uppercase tracking-widest text-slate-600">
-          No audio — demo timeline
-        </span>
-      )}
+      {!hasAudio && <NoAudioLabel />}
     </div>
   );
 }
@@ -128,6 +134,7 @@ export function TimelinePanel() {
   const duration = useShowStore((s) => s.duration);
   const seek = useShowStore((s) => s.seek);
   const addEvent = useShowStore((s) => s.addEvent);
+  const t = useT();
   const lanesRef = useRef<HTMLDivElement>(null);
   const scrubbing = useRef(false);
 
@@ -158,7 +165,7 @@ export function TimelinePanel() {
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center gap-3 border-b border-ink-700/70 px-3">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-          <Icon name="music" size={14} /> Timeline
+          <Icon name="music" size={14} /> {t('timeline.title')}
         </div>
         <BpmControls />
         <div className="ml-auto flex items-center gap-2">
@@ -175,10 +182,10 @@ export function TimelinePanel() {
             className="flex items-center gap-1.5 border-b border-ink-700/70 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
             style={{ height: WAVE_H }}
           >
-            <Icon name="music" size={12} /> Audio
+            <Icon name="music" size={12} /> {t('timeline.audio')}
           </div>
           {TRACKS.map((track) => (
-            <TrackLabel key={track.id} id={track.id} label={track.label} color={track.color} onAdd={() => addEvent(track.id, defaultTypeFor(track.id))} style={{ height: TRACK_H }} />
+            <TrackLabel key={track.id} id={track.id} label={t(`track.${track.id}`)} color={track.color} onAdd={() => addEvent(track.id, defaultTypeFor(track.id))} style={{ height: TRACK_H }} />
           ))}
         </div>
 
@@ -221,13 +228,14 @@ function TrackLabel({
   onAdd: () => void;
   style: React.CSSProperties;
 }) {
+  const t = useT();
   return (
     <div className="group flex items-center gap-2 border-b border-ink-700/70 px-3" style={style}>
       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
       <span className="flex-1 truncate text-xs font-medium text-slate-300">{label}</span>
       <button
         className="grid h-5 w-5 place-items-center rounded text-slate-500 opacity-0 transition-opacity hover:bg-ink-700 hover:text-accent-cyan group-hover:opacity-100"
-        title={`Add event to ${label}`}
+        title={t('timeline.addEvent', { label })}
         onClick={onAdd}
       >
         <Icon name="plus" size={13} />

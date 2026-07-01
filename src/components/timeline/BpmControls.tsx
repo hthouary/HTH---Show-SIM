@@ -2,6 +2,9 @@ import { useRef, useState } from 'react';
 import { useShowStore } from '../../store/useShowStore';
 import { SNAP_DIVISIONS } from '../../utils/beat';
 import { Icon } from '../ui/Icon';
+import { useT } from '../../i18n/useT';
+
+const DIV_KEY: Record<number, string> = { 4: 'div.bar', 1: 'div.beat', 0.5: 'div.half', 0.25: 'div.quarter' };
 
 /** Tempo + grid controls for the timeline: BPM, tap-tempo, snap and grid. */
 export function BpmControls() {
@@ -13,6 +16,7 @@ export function BpmControls() {
   const setSnapDivision = useShowStore((s) => s.setSnapDivision);
   const showBeatGrid = useShowStore((s) => s.showBeatGrid);
   const toggleBeatGrid = useShowStore((s) => s.toggleBeatGrid);
+  const t = useT();
 
   const [buf, setBuf] = useState(String(bpm));
   const taps = useRef<number[]>([]);
@@ -60,8 +64,8 @@ export function BpmControls() {
         />
       </div>
 
-      <button className="btn h-7 px-2" onClick={tap} title="Tap tempo (click on the beat)">
-        Tap
+      <button className="btn h-7 px-2" onClick={tap} title={t('bpm.tap.title')}>
+        {t('bpm.tap')}
       </button>
 
       {/* Snap toggle */}
@@ -72,9 +76,9 @@ export function BpmControls() {
             ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
             : 'border-ink-600 text-slate-400 hover:text-slate-200'
         }`}
-        title="Snap events to the beat grid"
+        title={t('bpm.snap.title')}
       >
-        <Icon name="magnet" size={13} /> Snap
+        <Icon name="magnet" size={13} /> {t('bpm.snap')}
       </button>
 
       {/* Snap division */}
@@ -83,11 +87,11 @@ export function BpmControls() {
         value={snapDivision}
         disabled={!snapEnabled}
         onChange={(e) => setSnapDivision(parseFloat(e.target.value))}
-        title="Snap resolution"
+        title={t('bpm.div.title')}
       >
         {SNAP_DIVISIONS.map((d) => (
           <option key={d.value} value={d.value}>
-            {d.label}
+            {t(DIV_KEY[d.value] ?? d.label)}
           </option>
         ))}
       </select>
@@ -100,9 +104,9 @@ export function BpmControls() {
             ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
             : 'border-ink-600 text-slate-400 hover:text-slate-200'
         }`}
-        title="Show the beat / bar grid"
+        title={t('bpm.grid.title')}
       >
-        <Icon name="grid" size={13} /> Grid
+        <Icon name="grid" size={13} /> {t('bpm.grid')}
       </button>
     </div>
   );

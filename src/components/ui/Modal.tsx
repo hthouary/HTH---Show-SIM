@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { Icon } from './Icon';
+import { useT } from '../../i18n/useT';
 
 interface ModalProps {
   title: string;
@@ -11,6 +12,7 @@ interface ModalProps {
 }
 
 export function Modal({ title, onClose, children, footer, width = 460 }: ModalProps) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -31,7 +33,7 @@ export function Modal({ title, onClose, children, footer, width = 460 }: ModalPr
       >
         <div className="flex items-center justify-between border-b border-ink-700/70 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
-          <button className="btn-ghost h-7 w-7 px-0" onClick={onClose} aria-label="Close">
+          <button className="btn-ghost h-7 w-7 px-0" onClick={onClose} aria-label={t('common.close')}>
             <Icon name="close" size={15} />
           </button>
         </div>

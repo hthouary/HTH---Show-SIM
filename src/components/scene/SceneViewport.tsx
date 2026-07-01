@@ -6,8 +6,8 @@ import { KernelSize } from 'postprocessing';
 import * as THREE from 'three';
 import { StageScene } from './StageScene';
 import { useShowStore } from '../../store/useShowStore';
-import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { Icon, type IconName } from '../ui/Icon';
+import { useT } from '../../i18n/useT';
 
 function ToggleButton({
   active,
@@ -22,6 +22,7 @@ function ToggleButton({
   label: string;
   title: string;
 }) {
+  const t = useT();
   return (
     <button
       onClick={onClick}
@@ -33,7 +34,7 @@ function ToggleButton({
       title={title}
     >
       <Icon name={icon} size={13} />
-      {label}: {active ? 'On' : 'Off'}
+      {label}: {active ? t('state.on') : t('state.off')}
     </button>
   );
 }
@@ -59,13 +60,14 @@ function ViewportOverlay({
   const selectedId = useShowStore((s) => s.selectedObjectId);
   const gizmoMode = useShowStore((s) => s.gizmoMode);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
+  const t = useT();
 
   return (
     <>
       {/* Top-left hint chip */}
       <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-lg border border-ink-700/70 bg-ink-900/70 px-2.5 py-1.5 text-[11px] text-slate-400 backdrop-blur">
         <Icon name="eye" size={13} className="text-accent-cyan" />
-        <span>Drag to orbit · Scroll to zoom · Click to select · Drag arrows to move</span>
+        <span>{t('viewport.hint')}</span>
       </div>
 
       {/* Gizmo mode toolbar (only when an object is selected) */}
@@ -78,9 +80,9 @@ function ViewportOverlay({
               className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
                 gizmoMode === m ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-slate-400 hover:text-slate-200'
               }`}
-              title={m === 'translate' ? 'Move (W)' : 'Rotate on X / Y (E)'}
+              title={m === 'translate' ? t('viewport.move.title') : t('viewport.rotate.title')}
             >
-              {m === 'translate' ? 'Move' : 'Rotate'}
+              {m === 'translate' ? t('viewport.move') : t('viewport.rotate')}
               <span className="ml-1 text-slate-600">{m === 'translate' ? 'W' : 'E'}</span>
             </button>
           ))}
@@ -93,22 +95,22 @@ function ViewportOverlay({
           active={collisions}
           onClick={toggleCollisions}
           icon="box"
-          label="Collisions"
-          title="Keep objects on the floor and from overlapping while placing / moving."
+          label={t('toggle.collisions')}
+          title={t('toggle.collisions.title')}
         />
         <ToggleButton
           active={workLight}
           onClick={onToggleWorkLight}
           icon="lightbulb"
-          label="Work Light"
-          title="Toggle a bright neutral light to see the whole scene while building."
+          label={t('toggle.workLight')}
+          title={t('toggle.workLight.title')}
         />
         <ToggleButton
           active={bloom}
           onClick={onToggleBloom}
           icon="sparkles"
-          label="Glow"
-          title="Toggle bloom / glow. Turn off if your display flickers."
+          label={t('toggle.glow')}
+          title={t('toggle.glow.title')}
         />
         <button
           onClick={toggleQuality}
@@ -117,10 +119,10 @@ function ViewportOverlay({
               ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan'
               : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
           }`}
-          title="Render quality. Drop to Low if the scene runs slowly (reflections/shadows off)."
+          title={t('toggle.quality.title')}
         >
           <Icon name="box" size={13} />
-          Quality: {quality === 'high' ? 'High' : 'Low'}
+          {t('toggle.quality')}: {quality === 'high' ? t('quality.high') : t('quality.low')}
         </button>
       </div>
 
@@ -128,9 +130,7 @@ function ViewportOverlay({
       {placementType && (
         <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-accent-cyan/50 bg-ink-900/85 px-3 py-1.5 text-[11px] text-accent-cyan shadow-glow backdrop-blur">
           <Icon name="plus" size={13} />
-          <span>
-            Placing <b>{CATALOG_BY_TYPE[placementType].label}</b> — click in the scene
-          </span>
+          <span>{t('viewport.placing', { label: t(`obj.${placementType}.label`) })}</span>
           <button className="ml-1 rounded px-1.5 text-slate-400 hover:text-white" onClick={cancelPlacement}>
             Esc
           </button>
@@ -141,7 +141,7 @@ function ViewportOverlay({
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="rounded-xl border border-ink-700 bg-ink-900/80 px-6 py-4 text-center text-sm text-slate-400 backdrop-blur">
             <Icon name="box" size={26} className="mx-auto mb-2 text-slate-600" />
-            The stage is empty — pick an item from the Library, then click in the scene to place it.
+            {t('viewport.empty')}
           </div>
         </div>
       )}

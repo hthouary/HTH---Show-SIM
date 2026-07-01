@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import type { Project, SceneObject, SceneObjectType, ShowEvent, TrackId, Vec3 } from '../types/show';
-import { CATALOG_BY_TYPE, createId, createSceneObject, defaultEventParams } from '../data/catalog';
+import { createId, createSceneObject, defaultEventParams } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { resolvePlacement } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
+import { translate, type Lang } from '../i18n/translations';
 import {
   getLastProjectId,
   loadProject as loadProjectFromStorage,
@@ -44,6 +45,9 @@ interface ShowState {
   gizmoMode: 'translate' | 'rotate';
   /** Render quality: 'high' enables reflections / shadows, 'low' keeps it light. */
   quality: 'low' | 'high';
+  /** UI language. */
+  language: Lang;
+  setLanguage: (lang: Lang) => void;
 
   // ---- Timeline / musical grid ----------------------------------------
   /** Snap timeline events to the beat grid while placing / dragging. */
@@ -121,6 +125,16 @@ function initialProject(): Project {
   return createDemoProject();
 }
 
+function initialLanguage(): Lang {
+  try {
+    const saved = localStorage.getItem('showforge.lang');
+    if (saved === 'en' || saved === 'fr') return saved;
+  } catch {
+    /* ignore */
+  }
+  return typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}
+
 export const useShowStore = create<ShowState>((set, get) => {
   const startProject = initialProject();
 
@@ -144,6 +158,10 @@ export const useShowStore = create<ShowState>((set, get) => {
     histTime = 0;
   };
 
+  // Translate using the current language (for toasts / created object names).
+  const tr = (key: string, params?: Record<string, string | number>) =>
+    translate(get().language, key, params);
+
   return {
     project: startProject,
     selectedObjectId: null,
@@ -157,6 +175,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     collisions: false,
     gizmoMode: 'translate',
     quality: 'high',
+    language: initialLanguage(),
     snapEnabled: true,
     snapDivision: 1,
     showBeatGrid: true,
@@ -188,10 +207,18 @@ export const useShowStore = create<ShowState>((set, get) => {
       }),
 
     setGizmoMode: (mode) => set({ gizmoMode: mode }),
+    setLanguage: (lang) => {
+      try {
+        localStorage.setItem('showforge.lang', lang);
+      } catch {
+        /* ignore */
+      }
+      set({ language: lang });
+    },
     toggleQuality: () => {
       const next = get().quality === 'high' ? 'low' : 'high';
       set({ quality: next });
-      get().pushToast('info', `Quality: ${next}`);
+      get().pushToast('info', tr('toast.quality', { q: tr(next === 'high' ? 'quality.high' : 'quality.low') }));
     },
     setBpm: (bpm) => {
       const clamped = Math.max(40, Math.min(300, Math.round(bpm)));
@@ -204,26 +231,28 @@ export const useShowStore = create<ShowState>((set, get) => {
     // ---------------------------------------------------------------- Objects
     addObject: (type) => {
       record('add');
-      const obj = createSceneObject(type);
+      const label = tr(`obj.${type}.label`);
+      const obj = createSceneObject(type, { name: label });
       set((s) => ({
         project: { ...s.project, objects: [...s.project.objects, obj], updatedAt: Date.now() },
         selectedObjectId: obj.id,
       }));
-      get().pushToast('success', `Added ${CATALOG_BY_TYPE[type].label}`);
+      get().pushToast('success', tr('toast.added', { name: label }));
     },
 
     addObjectAt: (type, position) => {
       record('add');
       const s = get();
+      const label = tr(`obj.${type}.label`);
       const pos = resolvePlacement(s.project.objects, null, type, 1, position, s.collisions);
-      const obj = createSceneObject(type, { position: pos });
+      const obj = createSceneObject(type, { position: pos, name: label });
       set((st) => ({
         project: { ...st.project, objects: [...st.project.objects, obj], updatedAt: Date.now() },
         selectedObjectId: obj.id,
         selectedEventId: null,
         placementType: null,
       }));
-      get().pushToast('success', `Placed ${CATALOG_BY_TYPE[type].label}`);
+      get().pushToast('success', tr('toast.placed', { name: label }));
     },
 
     updateObject: (id, patch) => {
@@ -295,7 +324,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     toggleCollisions: () => {
       const next = !get().collisions;
       set({ collisions: next });
-      get().pushToast('info', `Collisions ${next ? 'enabled' : 'disabled'}`);
+      get().pushToast('info', tr('toast.collisions', { state: tr(next ? 'toast.on' : 'toast.off') }));
     },
 
     // ----------------------------------------------------------------- Events
@@ -389,9 +418,9 @@ export const useShowStore = create<ShowState>((set, get) => {
             updatedAt: Date.now(),
           },
         }));
-        get().pushToast('success', `Loaded audio: ${file.name}`);
+        get().pushToast('success', tr('toast.audioLoaded', { name: file.name }));
       } catch (err) {
-        get().pushToast('error', `Could not load audio: ${(err as Error).message}`);
+        get().pushToast('error', tr('toast.audioError', { msg: (err as Error).message }));
       }
     },
 
@@ -446,32 +475,32 @@ export const useShowStore = create<ShowState>((set, get) => {
         past: [],
         future: [],
       });
-      get().pushToast('info', 'Created a new empty project');
+      get().pushToast('info', tr('toast.newProject'));
     },
 
     saveCurrentProject: () => {
       const { project } = get();
       persistProject(project);
-      get().pushToast('success', `Saved “${project.name}”`);
+      get().pushToast('success', tr('toast.saved', { name: project.name }));
     },
 
     loadProjectById: (id) => {
       const project = loadProjectFromStorage(id);
       if (!project) {
-        get().pushToast('error', 'Could not load that project');
+        get().pushToast('error', tr('toast.loadError'));
         return;
       }
       get().replaceProject(project);
-      get().pushToast('success', `Loaded “${project.name}”`);
+      get().pushToast('success', tr('toast.loaded', { name: project.name }));
     },
 
     importProjectJSON: (text) => {
       try {
         const project = parseProjectJSON(text);
         get().replaceProject(project);
-        get().pushToast('success', `Imported “${project.name}”`);
+        get().pushToast('success', tr('toast.imported', { name: project.name }));
       } catch (err) {
-        get().pushToast('error', `Import failed: ${(err as Error).message}`);
+        get().pushToast('error', tr('toast.importFailed', { msg: (err as Error).message }));
       }
     },
 
