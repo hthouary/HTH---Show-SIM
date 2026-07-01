@@ -55,10 +55,6 @@ export interface SceneObject {
   beamAngle: number;
   /** Aim point used by moving heads / lasers (world space). */
   target: Vec3;
-  /** Beam movement preset (light / laser fixtures). Defaults to 'fixed'. */
-  movement?: MovementPreset;
-  /** Movement speed, 0 (still) .. 100 (very fast). Defaults to 0. */
-  movementSpeed?: number;
   /** Hidden in the viewport (still listed in the Outliner). */
   hidden?: boolean;
 }

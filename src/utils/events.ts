@@ -1,4 +1,4 @@
-import type { ShowEvent } from '../types/show';
+import type { MovementPreset, ShowEvent } from '../types/show';
 
 /**
  * The event engine turns a list of timeline events + the current playback time
@@ -14,6 +14,14 @@ import type { ShowEvent } from '../types/show';
 
 export type RGB = [number, number, number];
 
+/** Beam movement in effect: a preset pattern + a 0..100 speed dial. */
+export interface MoveState {
+  pattern: MovementPreset;
+  speed: number;
+}
+
+const STILL: MoveState = { pattern: 'fixed', speed: 0 };
+
 export interface LightState {
   color: RGB;
   intensity: number;
@@ -21,14 +29,16 @@ export interface LightState {
   strobe: number;
   /** Whether a strobe window is currently active. */
   strobing: boolean;
-  /** -1..1 horizontal sweep offset for pan animation. */
-  sweep: number;
+  /** Beam movement in effect (driven by timeline "Movement" events). */
+  move: MoveState;
 }
 
 export interface LaserState {
   active: boolean;
   color: RGB;
   intensity: number;
+  /** Fan movement in effect (driven by timeline laser events). */
+  move: MoveState;
 }
 
 export interface LedState {
@@ -54,6 +64,8 @@ export interface ShowState {
   laser: LaserState;
   /** Per-object laser color overrides keyed by object id. */
   laserOverrides: Record<string, RGB>;
+  /** Per-object laser movement overrides keyed by object id. */
+  laserMoveOverrides: Record<string, MoveState>;
   led: LedState;
   /** Active bursts keyed by target object id (or "all"). */
   bursts: {
@@ -102,10 +114,11 @@ function defaultState(time: number): ShowState {
   return {
     time,
     blackout: 0,
-    light: { color: [1, 1, 1], intensity: 0.55, strobe: 1, strobing: false, sweep: 0 },
+    light: { color: [1, 1, 1], intensity: 0.55, strobe: 1, strobing: false, move: { ...STILL } },
     overrides: {},
-    laser: { active: false, color: [0.22, 1, 0.08], intensity: 1 },
+    laser: { active: false, color: [0.22, 1, 0.08], intensity: 1, move: { ...STILL } },
     laserOverrides: {},
+    laserMoveOverrides: {},
     led: { color: [0.07, 0.12, 0.24], pulse: 0 },
     bursts: { smoke: {}, flame: {}, co2: {}, confetti: {} },
   };
@@ -169,11 +182,13 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
         break;
       }
       case 'light_sweep': {
+        // "Movement" event: sets the beam movement pattern + speed for its span.
         if (active) {
           const target = ensureOverride(state, ev.target);
-          const speed = num(ev.params, 'speed', 0.6);
-          const amp = num(ev.params, 'amplitude', 1);
-          target.sweep = Math.sin(t * speed * Math.PI * 2) * amp;
+          target.move = {
+            pattern: str(ev.params, 'pattern', 'wave') as MovementPreset,
+            speed: num(ev.params, 'speed', 40),
+          };
         }
         break;
       }
@@ -181,10 +196,17 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
         if (active) {
           state.laser.active = true;
           state.laser.intensity = envelope(local) * 0.5 + 0.5;
+          const move: MoveState = {
+            pattern: str(ev.params, 'pattern', 'fixed') as MovementPreset,
+            speed: num(ev.params, 'speed', 0),
+          };
           const c = ev.params['color'];
-          if (typeof c === 'string') {
-            if (ev.target === 'all') state.laser.color = hexToRgb(c);
-            else state.laserOverrides[ev.target] = hexToRgb(c);
+          if (ev.target === 'all') {
+            state.laser.move = move;
+            if (typeof c === 'string') state.laser.color = hexToRgb(c);
+          } else {
+            state.laserMoveOverrides[ev.target] = move;
+            if (typeof c === 'string') state.laserOverrides[ev.target] = hexToRgb(c);
           }
         }
         break;
@@ -242,4 +264,9 @@ export function lightForObject(state: ShowState, id: string): LightState {
 /** Resolve the laser color for a specific object id. */
 export function laserColorForObject(state: ShowState, id: string): RGB {
   return state.laserOverrides[id] ?? state.laser.color;
+}
+
+/** Resolve the laser movement for a specific object id. */
+export function laserMoveForObject(state: ShowState, id: string): MoveState {
+  return state.laserMoveOverrides[id] ?? state.laser.move;
 }

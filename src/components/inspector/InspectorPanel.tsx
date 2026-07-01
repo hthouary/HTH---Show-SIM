@@ -1,10 +1,9 @@
 import { useShowStore, selectSelectedEvent, selectSelectedObject } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE } from '../../data/catalog';
-import { ColorField, NumberField, SelectField, SliderField, Vec3Field } from '../ui/fields';
+import { ColorField, NumberField, SliderField, Vec3Field } from '../ui/fields';
 import { Icon } from '../ui/Icon';
 import { EventEditor } from '../timeline/EventEditor';
-import type { MovementPreset, SceneObject } from '../../types/show';
-import { MOVEMENT_PRESETS } from '../../utils/movement';
+import type { SceneObject } from '../../types/show';
 import { useT } from '../../i18n/useT';
 
 function ObjectInspector({ object }: { object: SceneObject }) {
@@ -56,22 +55,6 @@ function ObjectInspector({ object }: { object: SceneObject }) {
             onChange={(beamAngle) => set({ beamAngle })}
           />
           <Vec3Field label={t('field.target')} value={object.target} onChange={(target) => set({ target })} />
-
-          {/* Beam movement preset + 0..100 speed dial. */}
-          <SelectField
-            label={t('field.movement')}
-            value={object.movement ?? 'fixed'}
-            onChange={(movement) => set({ movement: movement as MovementPreset })}
-            options={MOVEMENT_PRESETS.map((m) => ({ value: m, label: t(`movement.${m}`) }))}
-          />
-          <SliderField
-            label={t('field.speed')}
-            value={object.movementSpeed ?? 0}
-            min={0}
-            max={100}
-            step={1}
-            onChange={(movementSpeed) => set({ movementSpeed })}
-          />
         </>
       )}
 

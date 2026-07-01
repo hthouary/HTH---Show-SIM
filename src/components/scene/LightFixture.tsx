@@ -101,18 +101,14 @@ export function LightFixture({ object }: Props) {
       flareRef.current.scale.setScalar(s);
     }
 
-    // Movement preset + event sweep + subtle idle sway — pivots from the lens
-    // like a real moving head. All motion freezes while paused so a paused
-    // scene is dead still. When a movement preset is active it replaces the
-    // idle sway; the event-driven sweep is always layered on top.
+    // Beam movement — driven by timeline "Movement" events (pattern + speed),
+    // resolved per fixture. Phase uses the show time so it stays in sync with
+    // playback, scrubs correctly and freezes automatically when paused. The
+    // head pivots from the lens like a real moving head.
     if (swingRef.current) {
-      const mv = playing
-        ? movementRotation(object.movement, object.movementSpeed, t, movementSeed(object.position))
-        : { x: 0, z: 0, active: false };
-      const swayZ = playing && !mv.active ? Math.sin(t * 0.8 + object.position[0]) * 0.045 : 0;
-      const swayX = playing && !mv.active ? Math.sin(t * 0.5 + object.position[2]) * 0.045 : 0;
-      swingRef.current.rotation.z = light.sweep * 0.4 + mv.z + swayZ;
-      swingRef.current.rotation.x = mv.x + swayX;
+      const mv = movementRotation(light.move.pattern, light.move.speed, state.time, movementSeed(object.position));
+      swingRef.current.rotation.z = mv.z;
+      swingRef.current.rotation.x = mv.x;
     }
   });
 

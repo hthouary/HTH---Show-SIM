@@ -253,8 +253,6 @@ const DEFAULT_OBJECT: Omit<SceneObject, 'id' | 'type' | 'name'> = {
   intensity: 1,
   beamAngle: 12,
   target: [0, 0, 4],
-  movement: 'fixed',
-  movementSpeed: 0,
 };
 
 /** Build a fresh SceneObject from the catalog defaults for a given type. */
@@ -282,9 +280,9 @@ export function defaultEventParams(type: string): Record<string, unknown> {
     case 'light_strobe':
       return { rate: 9, color: '#ffffff' };
     case 'light_sweep':
-      return { amplitude: 1, speed: 0.6 };
+      return { pattern: 'wave', speed: 40 };
     case 'laser_on':
-      return { color: '#39ff14' };
+      return { color: '#39ff14', pattern: 'circular', speed: 45 };
     case 'led_pulse':
       return { color: '#22d3ee', rate: 2 };
     case 'smoke_burst':
@@ -313,7 +311,7 @@ export const EVENT_TYPES_BY_TRACK: Record<TrackId, ShowEventTypeMeta[]> = {
     { type: 'light_color', label: 'Light Color' },
     { type: 'light_intensity', label: 'Light Intensity' },
     { type: 'light_strobe', label: 'Strobe' },
-    { type: 'light_sweep', label: 'Sweep' },
+    { type: 'light_sweep', label: 'Movement' },
     { type: 'blackout', label: 'Blackout' },
   ],
   lasers: [

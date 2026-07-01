@@ -35,8 +35,6 @@ export function createDemoProject(): Project {
         target: [x * 0.4, 0, 4],
         color: '#22d3ee',
         beamAngle: 6,
-        movement: 'circular',
-        movementSpeed: 32,
       }),
     );
     movingHeadIds.push(o.id);
@@ -50,8 +48,6 @@ export function createDemoProject(): Project {
         target: [x * 0.5, 0, 3],
         color: '#8b5cf6',
         beamAngle: 18,
-        movement: 'wave',
-        movementSpeed: 26,
       }),
     );
     movingHeadIds.push(o.id);
@@ -67,8 +63,6 @@ export function createDemoProject(): Project {
         target: [x * 0.2, 0, 2],
         color: i % 2 === 0 ? '#3b82f6' : '#e64bd6',
         beamAngle: 3.5,
-        movement: 'up_down',
-        movementSpeed: 40,
       }),
     );
   }
@@ -80,8 +74,6 @@ export function createDemoProject(): Project {
       position: [-6, 5.6, -3],
       target: [2, 1.5, 10],
       color: '#39ff14',
-      movement: 'left_right',
-      movementSpeed: 30,
     }),
   );
   add(
@@ -90,8 +82,6 @@ export function createDemoProject(): Project {
       position: [6, 5.6, -3],
       target: [-2, 1.5, 10],
       color: '#22d3ee',
-      movement: 'left_right',
-      movementSpeed: 30,
     }),
   );
 
@@ -122,45 +112,45 @@ export function createDemoProject(): Project {
   ev(0, 90, 'led', 'led_color', { color: '#1b2a55' });
   ev(0, 14, 'lights', 'light_color', { color: '#2a4cff' });
   ev(0, 14, 'lights', 'light_intensity', { intensity: 0.5 });
-  ev(2, 12, 'lights', 'light_sweep', { amplitude: 1, speed: 0.25 });
+  ev(2, 12, 'lights', 'light_sweep', { pattern: 'wave', speed: 22 });
   ev(4, 8, 'fx', 'smoke_burst', { intensity: 1 });
 
   // Build — color shift + first laser teaser
   ev(14, 16, 'lights', 'light_color', { color: '#22d3ee' });
   ev(14, 16, 'lights', 'light_intensity', { intensity: 0.9 });
-  ev(14, 16, 'lights', 'light_sweep', { amplitude: 1.4, speed: 0.5 });
+  ev(14, 16, 'lights', 'light_sweep', { pattern: 'circular', speed: 40 });
   ev(16, 14, 'led', 'led_pulse', { color: '#22d3ee', rate: 1 });
-  ev(20, 8, 'lasers', 'laser_on', { color: '#39ff14' });
+  ev(20, 8, 'lasers', 'laser_on', { color: '#39ff14', pattern: 'up_down', speed: 25 });
 
   // Drop 1 at ~30s — strobe + flames + confetti + magenta
   ev(28, 2, 'lights', 'light_color', { color: '#ffffff' });
   ev(28, 2.2, 'lights', 'light_strobe', { rate: 9, color: '#ffffff' });
   ev(30, 18, 'lights', 'light_color', { color: '#e64bd6' });
   ev(30, 18, 'lights', 'light_intensity', { intensity: 1.3 });
-  ev(30, 18, 'lights', 'light_sweep', { amplitude: 1.4, speed: 0.55 });
+  ev(30, 18, 'lights', 'light_sweep', { pattern: 'circular', speed: 60 });
   ev(30, 1.2, 'fx', 'flame_burst', { intensity: 1.2 });
   ev(30, 1.2, 'fx', 'confetti_burst', { intensity: 1.4 });
   ev(30, 18, 'led', 'led_pulse', { color: '#e64bd6', rate: 1.3 });
-  ev(30, 18, 'lasers', 'laser_on', { color: '#ff2bd0' });
+  ev(30, 18, 'lasers', 'laser_on', { color: '#ff2bd0', pattern: 'circular', speed: 60 });
   ev(36, 1, 'fx', 'co2_burst', { intensity: 1 });
   ev(42, 1.2, 'fx', 'flame_burst', { intensity: 1 });
 
   // Breakdown at ~48s — calmer violet, smoke rolls in
   ev(48, 14, 'lights', 'light_color', { color: '#8b5cf6' });
   ev(48, 14, 'lights', 'light_intensity', { intensity: 0.7 });
-  ev(48, 14, 'lights', 'light_sweep', { amplitude: 0.8, speed: 0.35 });
+  ev(48, 14, 'lights', 'light_sweep', { pattern: 'left_right', speed: 26 });
   ev(48, 12, 'fx', 'smoke_burst', { intensity: 1 });
   ev(48, 14, 'led', 'led_color', { color: '#2b1a55' });
-  ev(50, 10, 'lasers', 'laser_on', { color: '#22d3ee' });
+  ev(50, 10, 'lasers', 'laser_on', { color: '#22d3ee', pattern: 'wave', speed: 40 });
 
   // Drop 2 at ~62s — full energy, amber + strobe + CO2
   ev(60, 2, 'lights', 'light_color', { color: '#ffffff' });
   ev(60, 2, 'lights', 'light_strobe', { rate: 10, color: '#ffffff' });
   ev(62, 16, 'lights', 'light_color', { color: '#ff7b1c' });
   ev(62, 16, 'lights', 'light_intensity', { intensity: 1.4 });
-  ev(62, 16, 'lights', 'light_sweep', { amplitude: 1.5, speed: 0.6 });
+  ev(62, 16, 'lights', 'light_sweep', { pattern: 'circular', speed: 72 });
   ev(62, 16, 'led', 'led_pulse', { color: '#ff7b1c', rate: 1.5 });
-  ev(62, 16, 'lasers', 'laser_on', { color: '#39ff14' });
+  ev(62, 16, 'lasers', 'laser_on', { color: '#39ff14', pattern: 'circular', speed: 78 });
   ev(62, 1.2, 'fx', 'co2_burst', { intensity: 1.3 });
   ev(64, 1.2, 'fx', 'flame_burst', { intensity: 1.3 });
   ev(68, 1.2, 'fx', 'confetti_burst', { intensity: 1.6 });

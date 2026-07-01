@@ -68,3 +68,52 @@ export function movementRotation(
 export function movementSeed(position: [number, number, number]): number {
   return position[0] * 1.3 + position[2] * 0.7;
 }
+
+const LASER_AMP = 0.5; // laser beams throw far, so a little swing goes a long way
+
+export interface LaserMoveRot {
+  /** Tilt of the whole fan (radians). */
+  x: number;
+  /** Pan of the whole fan (radians). */
+  z: number;
+  /** Roll around the projection axis (radians) — for the rotating-cone effect. */
+  spin: number;
+  active: boolean;
+}
+
+/**
+ * Movement for a laser projector. Unlike a moving head, a laser's signature
+ * "circular" look is the fan of beams spinning around its own projection axis,
+ * sweeping out a rotating cone (a circle in the haze) — so 'circular' is a
+ * continuous roll, while the other presets pan / tilt the whole fan.
+ */
+export function laserMovement(
+  pattern: MovementPreset | undefined,
+  speed: number | undefined,
+  t: number,
+  seed = 0,
+): LaserMoveRot {
+  const spd = speed ?? 0;
+  if (!pattern || pattern === 'fixed' || spd <= 0) return { x: 0, z: 0, spin: 0, active: false };
+  const omega = movementOmega(spd);
+  const ph = t * omega + seed;
+  switch (pattern) {
+    case 'circular':
+      // Continuous roll around the aim axis → the beam fan sweeps a rotating cone.
+      return { x: 0, z: 0, spin: ph, active: true };
+    case 'wave':
+      // Liquid side-to-side sweep with a small vertical component and gentle roll.
+      return {
+        x: Math.sin(ph * 2) * LASER_AMP * 0.3,
+        z: Math.sin(ph) * LASER_AMP,
+        spin: Math.sin(ph * 0.5) * 0.25,
+        active: true,
+      };
+    case 'up_down':
+      return { x: Math.sin(ph) * LASER_AMP, z: 0, spin: 0, active: true };
+    case 'left_right':
+      return { x: 0, z: Math.sin(ph) * LASER_AMP, spin: 0, active: true };
+    default:
+      return { x: 0, z: 0, spin: 0, active: false };
+  }
+}

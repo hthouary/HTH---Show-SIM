@@ -2,8 +2,8 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
-import { laserColorForObject } from '../../utils/events';
-import { movementRotation, movementSeed } from '../../utils/movement';
+import { laserColorForObject, laserMoveForObject } from '../../utils/events';
+import { laserMovement, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { ignoreRaycast } from './interaction';
@@ -62,6 +62,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
   useFrame(({ clock }) => {
     const state = showRef.current;
     const rgb = laserColorForObject(state, object.id);
+    const lm = laserMoveForObject(state, object.id);
     tmpColor.setRGB(rgb[0], rgb[1], rgb[2]);
     const on = state.laser.active && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
@@ -77,23 +78,20 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     dotMat.color.copy(tmpColor);
     dotMat.opacity = on ? 1 : 0.12;
 
-    // Movement preset steers the whole fan; frozen while paused.
-    const mv = playing
-      ? movementRotation(object.movement, object.movementSpeed, t, movementSeed(object.position))
-      : { x: 0, z: 0, active: false };
-    if (moveRef.current && playing) {
+    // Movement — driven by the timeline laser events (pattern + speed), resolved
+    // per fixture. Phase uses the show time so it stays in sync with playback,
+    // scrubs correctly and freezes when paused. 'circular' rolls the whole fan
+    // around its projection axis, sweeping a rotating cone (a circle in the haze);
+    // the other presets pan / tilt the fan. moveRef aims it, fanRef rolls it.
+    const mv = laserMovement(lm.pattern, lm.speed, state.time, movementSeed(object.position));
+    if (moveRef.current) {
       moveRef.current.rotation.x = mv.x;
       moveRef.current.rotation.z = mv.z;
     }
-
     if (fanRef.current) {
       fanRef.current.visible = on;
-      // The fan's own gentle sweep — reduced while a movement preset is steering
-      // it, and only while playing so a paused scene is completely still.
-      if (playing) {
-        fanRef.current.rotation.y = Math.sin(t * 0.4) * (mv.active ? 0.3 : 0.5);
-        fanRef.current.rotation.x = mv.active ? 0 : Math.sin(t * 0.6) * 0.12;
-      }
+      fanRef.current.rotation.y = mv.spin;
+      fanRef.current.rotation.x = 0;
     }
   });
 

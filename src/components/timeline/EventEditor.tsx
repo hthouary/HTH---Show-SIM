@@ -1,6 +1,7 @@
 import { useShowStore } from '../../store/useShowStore';
 import { EVENT_TYPES_BY_TRACK, TRACKS, defaultEventParams, isFxEmitter, isLightFixture } from '../../data/catalog';
-import type { ShowEvent, TrackId } from '../../types/show';
+import type { MovementPreset, ShowEvent, TrackId } from '../../types/show';
+import { MOVEMENT_PRESETS } from '../../utils/movement';
 import { ColorField, NumberField, SelectField, SliderField } from '../ui/fields';
 import { Icon } from '../ui/Icon';
 import { useT } from '../../i18n/useT';
@@ -30,12 +31,31 @@ function ParamFields({ event }: { event: ShowEvent }) {
   const num = (k: string, d: number) => (typeof event.params[k] === 'number' ? (event.params[k] as number) : d);
   const col = (k: string, d: string) => (typeof event.params[k] === 'string' ? (event.params[k] as string) : d);
 
+  // Movement pattern + 0..100 speed dial, shared by light "Movement" and laser events.
+  const movementFields = (defaultPattern: MovementPreset) => (
+    <>
+      <SelectField
+        label={tr('field.movement')}
+        value={col('pattern', defaultPattern) as MovementPreset}
+        onChange={(v) => setParam('pattern', v)}
+        options={MOVEMENT_PRESETS.map((m) => ({ value: m, label: tr(`movement.${m}`) }))}
+      />
+      <SliderField label={tr('field.speed')} value={num('speed', 40)} min={0} max={100} step={1} onChange={(v) => setParam('speed', v)} />
+    </>
+  );
+
   switch (event.type) {
     case 'light_color':
     case 'laser_color':
     case 'led_color':
-    case 'laser_on':
       return <ColorField label={tr('param.color')} value={col('color', '#22d3ee')} onChange={(v) => setParam('color', v)} />;
+    case 'laser_on':
+      return (
+        <div className="flex flex-col gap-3">
+          <ColorField label={tr('param.color')} value={col('color', '#39ff14')} onChange={(v) => setParam('color', v)} />
+          {movementFields('circular')}
+        </div>
+      );
     case 'light_intensity':
       return (
         <SliderField label={tr('param.intensity')} value={num('intensity', 1)} min={0} max={2} onChange={(v) => setParam('intensity', v)} />
@@ -48,12 +68,7 @@ function ParamFields({ event }: { event: ShowEvent }) {
         </div>
       );
     case 'light_sweep':
-      return (
-        <div className="grid grid-cols-2 gap-2">
-          <SliderField label={tr('param.amplitude')} value={num('amplitude', 1)} min={0} max={3} onChange={(v) => setParam('amplitude', v)} />
-          <SliderField label={tr('param.speed')} value={num('speed', 0.6)} min={0.1} max={3} onChange={(v) => setParam('speed', v)} />
-        </div>
-      );
+      return <div className="flex flex-col gap-3">{movementFields('wave')}</div>;
     case 'led_pulse':
       return (
         <div className="flex flex-col gap-3">
