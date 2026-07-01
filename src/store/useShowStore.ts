@@ -42,6 +42,8 @@ interface ShowState {
   collisions: boolean;
   /** Active transform gizmo mode. */
   gizmoMode: 'translate' | 'rotate';
+  /** Render quality: 'high' enables reflections / shadows, 'low' keeps it light. */
+  quality: 'low' | 'high';
 
   // ---- Timeline / musical grid ----------------------------------------
   /** Snap timeline events to the beat grid while placing / dragging. */
@@ -71,6 +73,7 @@ interface ShowState {
   cancelPlacement: () => void;
   toggleCollisions: () => void;
   setGizmoMode: (mode: 'translate' | 'rotate') => void;
+  toggleQuality: () => void;
   setBpm: (bpm: number) => void;
   toggleSnap: () => void;
   setSnapDivision: (division: number) => void;
@@ -153,6 +156,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     placementType: null,
     collisions: false,
     gizmoMode: 'translate',
+    quality: 'high',
     snapEnabled: true,
     snapDivision: 1,
     showBeatGrid: true,
@@ -184,6 +188,11 @@ export const useShowStore = create<ShowState>((set, get) => {
       }),
 
     setGizmoMode: (mode) => set({ gizmoMode: mode }),
+    toggleQuality: () => {
+      const next = get().quality === 'high' ? 'low' : 'high';
+      set({ quality: next });
+      get().pushToast('info', `Quality: ${next}`);
+    },
     setBpm: (bpm) => {
       const clamped = Math.max(40, Math.min(300, Math.round(bpm)));
       get().setSettings({ bpm: clamped });

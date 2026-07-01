@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { Grid } from '@react-three/drei';
+import { ContactShadows, Environment, Grid, Lightformer, MeshReflectorMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { useShowStore } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE } from '../../data/catalog';
@@ -17,6 +17,7 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
   const placementType = useShowStore((s) => s.placementType);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
   const selectObject = useShowStore((s) => s.selectObject);
+  const high = useShowStore((s) => s.quality === 'high');
 
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -69,11 +70,52 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
         </group>
       )}
 
-      {/* Floor + grid (also the placement / deselect click target) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow onClick={onFloorClick}>
+      {/* Environment reflections (procedural — no external assets), for metal.
+          Subtle colored studio lights give the truss / speakers realistic specular. */}
+      {high && (
+        <Environment resolution={128} frames={1}>
+          <Lightformer intensity={0.5} color="#3a5bd0" position={[0, 6, -10]} scale={[16, 8, 1]} />
+          <Lightformer intensity={0.35} color="#e64bd6" position={[-9, 4, 4]} rotation-y={Math.PI / 3} scale={[6, 9, 1]} />
+          <Lightformer intensity={0.35} color="#22d3ee" position={[9, 4, 4]} rotation-y={-Math.PI / 3} scale={[6, 9, 1]} />
+          <Lightformer intensity={0.12} color="#ffffff" position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[24, 24, 1]} />
+        </Environment>
+      )}
+
+      {/* Floor (also the placement / deselect click target). High quality uses a
+          semi-reflective floor so the beams and LED wall reflect on the deck. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} onClick={onFloorClick}>
         <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial color="#04050a" metalness={0.4} roughness={0.85} />
+        {high ? (
+          <MeshReflectorMaterial
+            resolution={256}
+            blur={[300, 100]}
+            mixBlur={1}
+            mixStrength={1.4}
+            roughness={0.85}
+            depthScale={1}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.2}
+            color="#05060a"
+            metalness={0.5}
+            mirror={0.35}
+          />
+        ) : (
+          <meshStandardMaterial color="#04050a" metalness={0.4} roughness={0.85} />
+        )}
       </mesh>
+
+      {/* Soft contact shadows ground the objects (High quality only). */}
+      {high && !workLight && (
+        <ContactShadows
+          position={[0, 0.015, 0]}
+          scale={44}
+          far={16}
+          blur={2.6}
+          resolution={256}
+          color="#000000"
+          opacity={0.5}
+        />
+      )}
       <Grid
         position={[0, 0.001, 0]}
         args={[80, 80]}

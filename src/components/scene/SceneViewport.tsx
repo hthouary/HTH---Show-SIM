@@ -52,6 +52,8 @@ function ViewportOverlay({
   const objectCount = useShowStore((s) => s.project.objects.length);
   const collisions = useShowStore((s) => s.collisions);
   const toggleCollisions = useShowStore((s) => s.toggleCollisions);
+  const quality = useShowStore((s) => s.quality);
+  const toggleQuality = useShowStore((s) => s.toggleQuality);
   const placementType = useShowStore((s) => s.placementType);
   const cancelPlacement = useShowStore((s) => s.cancelPlacement);
   const selectedId = useShowStore((s) => s.selectedObjectId);
@@ -108,6 +110,18 @@ function ViewportOverlay({
           label="Glow"
           title="Toggle bloom / glow. Turn off if your display flickers."
         />
+        <button
+          onClick={toggleQuality}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+            quality === 'high'
+              ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan'
+              : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
+          }`}
+          title="Render quality. Drop to Low if the scene runs slowly (reflections/shadows off)."
+        >
+          <Icon name="box" size={13} />
+          Quality: {quality === 'high' ? 'High' : 'Low'}
+        </button>
       </div>
 
       {/* Placement banner */}
