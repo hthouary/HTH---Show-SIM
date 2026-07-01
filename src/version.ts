@@ -3,5 +3,5 @@
  * live (e.g. on Vercel): it's logged to the console on boot and shown in the
  * top bar, so you can confirm the deployed build matches.
  */
-export const APP_VERSION = '0.1.5';
-export const APP_BUILD = 'stable-playback';
+export const APP_VERSION = '0.1.6';
+export const APP_BUILD = 'glow-off-default';

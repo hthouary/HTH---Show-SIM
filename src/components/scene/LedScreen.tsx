@@ -42,8 +42,8 @@ const FRAG = /* glsl */ `
     pat += uPulse * 0.35;
     pat = clamp(pat, 0.0, 1.0);
 
-    vec3 col = uColor * (0.28 + pat * 0.6);
-    col += uColor * grid * 0.15;
+    vec3 col = uColor * (0.35 + pat * 0.75);
+    col += uColor * grid * 0.18;
     // Gentle, low-frequency scanline (high frequencies cause moiré/shimmer in motion).
     col *= 0.94 + 0.06 * sin(uv.y * 60.0);
 

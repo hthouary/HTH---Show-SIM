@@ -44,7 +44,9 @@ function ViewportOverlay({ bloom, onToggleBloom }: { bloom: boolean; onToggleBlo
 
 export function SceneViewport() {
   const selectObject = useShowStore((s) => s.selectObject);
-  const [bloom, setBloom] = useState(true);
+  // Bloom defaults OFF: it flickers on some Windows/Chrome GPU+driver combos.
+  // The scene glows via additive materials on its own; users can enable it.
+  const [bloom, setBloom] = useState(false);
 
   return (
     <div className="relative h-full w-full bg-gradient-to-b from-[#070912] to-[#03040a]">
@@ -68,11 +70,12 @@ export function SceneViewport() {
           maxPolarAngle={Math.PI / 2 - 0.02}
         />
         {bloom && (
-          <EffectComposer>
+          <EffectComposer multisampling={0}>
             {/* Gentle, temporally-stable bloom. No mipmapBlur: its per-frame mip
                 selection shimmers on moving bright features (beams/lasers/LED),
                 which is the main cause of flicker during playback. A plain
-                large-kernel blur with a high threshold + smoothing is steadier. */}
+                large-kernel blur with a high threshold + smoothing is steadier.
+                multisampling={0} avoids MSAA-resolve flicker on some drivers. */}
             <Bloom
               intensity={0.5}
               luminanceThreshold={0.72}

@@ -79,9 +79,10 @@ export function LightFixture({ object }: Props) {
     const playing = useShowStore.getState().isPlaying;
 
     // Volumetric beam — steady; only a barely-perceptible slow breath while playing.
+    // Opacity is a bit stronger so beams glow well even without bloom.
     const breathe = playing ? 0.98 + Math.sin(t * 0.5 + object.position[0]) * 0.02 : 1;
     beamMat.uniforms.uColor.value.copy(tmpColor);
-    beamMat.uniforms.uOpacity.value = Math.min(0.85, eff * 0.5) * breathe;
+    beamMat.uniforms.uOpacity.value = Math.min(0.95, eff * 0.62) * breathe;
 
     // Glowing lens + camera-facing flare.
     if (lensRef.current) {
@@ -92,8 +93,9 @@ export function LightFixture({ object }: Props) {
     if (flareRef.current) {
       const mat = flareRef.current.material as THREE.SpriteMaterial;
       mat.color.copy(tmpColor);
-      mat.opacity = Math.min(1, eff * 0.9);
-      const s = 0.5 + Math.min(1.4, eff * 1.1);
+      mat.opacity = Math.min(1, eff * 1.0);
+      // Larger, brighter camera-facing flare compensates for the lack of bloom.
+      const s = 0.75 + Math.min(1.9, eff * 1.4);
       flareRef.current.scale.setScalar(s);
     }
 
