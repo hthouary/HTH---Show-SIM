@@ -27,7 +27,7 @@ export function createDemoProject(): Project {
   add(createSceneObject('truss_tower', { name: 'Tower Right', position: [9, 2.5, -1] }));
   add(createSceneObject('speaker', { name: 'PA Left', position: [-7, 4.6, -1] }));
   add(createSceneObject('speaker', { name: 'PA Right', position: [7, 4.6, -1] }));
-  add(createSceneObject('crowd_block', { name: 'Crowd', position: [0, 0, 12], scale: 1.6 }));
+  add(createSceneObject('crowd_block', { name: 'Crowd', position: [0, 0, 10], scale: 1.15 }));
 
   // ---- 8 moving heads on the front truss (4 spot + 4 wash) ---------------
   const headX = [-6, -3.6, -1.2, 1.2, 3.6, 6];

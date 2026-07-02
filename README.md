@@ -108,10 +108,13 @@ A switch in the top bar flips between the two ways you work on a show:
 - **3D viewport** — orbit / zoom / pan, a grey concrete ground to build on, ACES
   tone-mapping and bloom; click to select, transform gizmo on the selection.
 - **Sky & daylight** — a gradient sky with a sun that rises and sets: blue day
-  with neutral daylight, dark-blue night with almost no natural light so the rig
-  pops. A Sky panel controls the **time of day** and the **day / night
-  brightness** (plus ground fog). The build grid is an optional overlay, off by
-  default.
+  with neutral daylight and **real sun shadows** (High quality), dark-blue night
+  with **stars, a moon and cool moonlight** so the rig pops. A Sky panel offers
+  **Day / Night presets** plus time-of-day and day / night brightness sliders
+  (and ground fog). The build grid is an optional overlay, off by default.
+- **Living crowd** — instanced people (torsos, heads, varied skin tones and
+  clothing), a share of them holding up **glowing phone screens** that read at
+  night; the pit sways idly and **jumps with the music** while the show plays.
 - **Object library** — 18 object types across Stage / Lights / FX, one click to
   add to the scene, including **vertical structures** (truss towers, arches).
 - **Realistic gear** — fixtures are modelled to read like real touring hardware:

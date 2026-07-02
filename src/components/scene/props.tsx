@@ -3,6 +3,9 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SceneObject } from '../../types/show';
+import { useShowStore } from '../../store/useShowStore';
+import { audioEngine } from '../../utils/audio';
+import { ignoreRaycast } from './interaction';
 
 /**
  * Static stage hardware — trusses, towers, PA, deck, DJ booth, crowd — plus the
@@ -241,49 +244,185 @@ export function DjBooth({ object }: { object: SceneObject }) {
   );
 }
 
-/** Audience — an instanced field of dark figures that gently bob. */
-export function CrowdBlock({ object }: { object: SceneObject }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const COLS = 26;
-  const ROWS = 10;
-  const total = COLS * ROWS;
+// ------------------------------------------------------------------- Crowd
 
-  const data = useMemo(() => {
-    const arr: { x: number; z: number; h: number; phase: number }[] = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+const CROWD_COLS = 30;
+const CROWD_ROWS = 12;
+const CROWD_TOTAL = CROWD_COLS * CROWD_ROWS;
+/** Varied dark "clothing" tones so the crowd doesn't read as a uniform mass. */
+const CLOTHES = ['#22242c', '#2b2e38', '#3a2e2e', '#26323a', '#332b3d', '#1f2a24', '#3d3d46', '#402f26', '#2e2431', '#24303c'];
+const SKIN = ['#c9976f', '#a97c53', '#8a5f3d', '#6b452c', '#e0b48f', '#553524'];
+
+interface Person {
+  x: number;
+  z: number;
+  h: number;
+  phase: number;
+  energy: number;
+  wide: number;
+  cloth: string;
+  skin: string;
+  armUp: boolean;
+  side: 1 | -1;
+  phone: boolean;
+  rotY: number;
+}
+
+/**
+ * Audience — instanced people (torso + head, a share of them with a raised arm
+ * holding a glowing phone). They sway idly and jump to the music while the show
+ * plays; phone screens only really read at night, like at a real gig.
+ */
+export function CrowdBlock({ object }: { object: SceneObject }) {
+  const bodyRef = useRef<THREE.InstancedMesh>(null);
+  const headRef = useRef<THREE.InstancedMesh>(null);
+  const armRef = useRef<THREE.InstancedMesh>(null);
+  const phoneRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  const phoneMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: '#cfe0ff', toneMapped: false, transparent: true, opacity: 1, side: THREE.DoubleSide }),
+    [],
+  );
+  const armGeo = useMemo(() => {
+    const g = new THREE.CapsuleGeometry(0.042, 0.5, 3, 6);
+    g.translate(0, 0.29, 0); // pivot at the shoulder
+    return g;
+  }, []);
+  useEffect(() => () => {
+    phoneMat.dispose();
+    armGeo.dispose();
+  }, [phoneMat, armGeo]);
+
+  const people = useMemo<Person[]>(() => {
+    const arr: Person[] = [];
+    for (let r = 0; r < CROWD_ROWS; r++) {
+      for (let c = 0; c < CROWD_COLS; c++) {
+        const armUp = Math.random() < 0.32;
         arr.push({
-          x: (c - COLS / 2) * 0.7 + (Math.random() - 0.5) * 0.3,
-          z: r * 0.8 + (Math.random() - 0.5) * 0.3,
-          h: 1.5 + Math.random() * 0.5,
+          x: (c - CROWD_COLS / 2) * 0.8 + (Math.random() - 0.5) * 0.45,
+          z: r * 0.8 + (Math.random() - 0.5) * 0.4,
+          h: 1.45 + Math.random() * 0.35,
           phase: Math.random() * Math.PI * 2,
+          energy: 0.35 + Math.random() * 0.65,
+          wide: 0.88 + Math.random() * 0.28,
+          cloth: CLOTHES[Math.floor(Math.random() * CLOTHES.length)],
+          skin: SKIN[Math.floor(Math.random() * SKIN.length)],
+          armUp,
+          side: Math.random() < 0.5 ? 1 : -1,
+          phone: armUp && Math.random() < 0.7,
+          rotY: Math.random() * Math.PI * 2,
         });
       }
     }
     return arr;
   }, []);
+  const arms = useMemo(() => people.filter((p) => p.armUp), [people]);
+  const phones = useMemo(() => arms.filter((p) => p.phone), [arms]);
 
-  const dummy = useMemo(() => new THREE.Object3D(), []);
+  // Per-person clothing / skin colours (set once).
+  useEffect(() => {
+    const c = new THREE.Color();
+    people.forEach((p, i) => {
+      c.set(p.cloth);
+      bodyRef.current?.setColorAt(i, c);
+      c.set(p.skin);
+      headRef.current?.setColorAt(i, c);
+    });
+    arms.forEach((p, i) => {
+      c.set(p.cloth);
+      armRef.current?.setColorAt(i, c);
+    });
+    for (const ref of [bodyRef, headRef, armRef]) {
+      if (ref.current?.instanceColor) ref.current.instanceColor.needsUpdate = true;
+    }
+  }, [people, arms]);
 
   useFrame(({ clock }) => {
-    if (!ref.current) return;
+    if (!bodyRef.current || !headRef.current) return;
     const t = clock.elapsedTime;
-    for (let i = 0; i < total; i++) {
-      const d = data[i];
-      const bob = Math.sin(t * 2 + d.phase) * 0.08;
-      dummy.position.set(d.x, d.h / 2 + bob, d.z);
-      dummy.scale.set(0.32, d.h, 0.32);
+    const st = useShowStore.getState();
+    const playing = st.isPlaying;
+    const level = audioEngine.level;
+    // Phones read at night; almost invisible in daylight (like reality).
+    const hour = st.project.settings.timeOfDay ?? 13;
+    const day = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
+    phoneMat.opacity = 0.22 + (1 - day) * 0.78;
+    // Idle sway; the pit jumps when the show is playing (more with the music).
+    const amp = 0.045 + (playing ? 0.11 + level * 0.22 : 0);
+
+    let ai = 0;
+    let pi = 0;
+    for (let i = 0; i < CROWD_TOTAL; i++) {
+      const p = people[i];
+      const bob = Math.abs(Math.sin(t * 3.1 * p.energy + p.phase)) * amp * p.energy;
+      const sway = Math.sin(t * 0.9 + p.phase) * 0.03;
+      const bodyH = p.h - 0.24;
+      const x = p.x + sway;
+
+      // Torso
+      dummy.rotation.set(0, p.rotY * 0.06, 0);
+      dummy.position.set(x, bodyH / 2 + bob, p.z);
+      dummy.scale.set(p.wide, bodyH / 1.28, p.wide);
       dummy.updateMatrix();
-      ref.current.setMatrixAt(i, dummy.matrix);
+      bodyRef.current.setMatrixAt(i, dummy.matrix);
+
+      // Head
+      dummy.rotation.set(0, 0, 0);
+      dummy.position.set(x, bodyH + 0.12 + bob, p.z);
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      headRef.current.setMatrixAt(i, dummy.matrix);
+
+      // Raised arm (+ phone at its tip)
+      if (p.armUp && armRef.current) {
+        const shoulderY = p.h * 0.72 + bob;
+        const theta = p.side * (0.32 + Math.sin(t * 1.15 + p.phase) * 0.13);
+        dummy.position.set(x + p.side * 0.2 * p.wide, shoulderY, p.z);
+        dummy.rotation.set(0, 0, theta);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        armRef.current.setMatrixAt(ai, dummy.matrix);
+        ai++;
+        if (p.phone && phoneRef.current) {
+          dummy.position.set(x + p.side * 0.2 * p.wide - Math.sin(theta) * 0.62, shoulderY + Math.cos(theta) * 0.62, p.z);
+          dummy.rotation.set(0, p.rotY, theta);
+          dummy.updateMatrix();
+          phoneRef.current.setMatrixAt(pi, dummy.matrix);
+          pi++;
+        }
+      }
     }
-    ref.current.instanceMatrix.needsUpdate = true;
+    bodyRef.current.instanceMatrix.needsUpdate = true;
+    headRef.current.instanceMatrix.needsUpdate = true;
+    if (armRef.current) armRef.current.instanceMatrix.needsUpdate = true;
+    if (phoneRef.current) phoneRef.current.instanceMatrix.needsUpdate = true;
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, total]} frustumCulled={false}>
-      <capsuleGeometry args={[0.5, 1, 4, 8]} />
-      <meshStandardMaterial color={object.color} roughness={0.9} metalness={0} />
-    </instancedMesh>
+    <group>
+      {/* Torsos — the clickable body of the crowd. */}
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, CROWD_TOTAL]} frustumCulled={false} castShadow>
+        <capsuleGeometry args={[0.21, 0.86, 4, 8]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.92} metalness={0} />
+      </instancedMesh>
+      <instancedMesh ref={headRef} args={[undefined, undefined, CROWD_TOTAL]} frustumCulled={false} raycast={ignoreRaycast}>
+        <sphereGeometry args={[0.105, 10, 8]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.85} metalness={0} />
+      </instancedMesh>
+      <instancedMesh ref={armRef} args={[armGeo, undefined, arms.length]} frustumCulled={false} raycast={ignoreRaycast}>
+        <meshStandardMaterial color="#ffffff" roughness={0.92} metalness={0} />
+      </instancedMesh>
+      {/* Phone screens (bright, tone-mapping bypassed → they glow at night). */}
+      <instancedMesh ref={phoneRef} args={[undefined, phoneMat, phones.length]} frustumCulled={false} raycast={ignoreRaycast}>
+        <planeGeometry args={[0.07, 0.13]} />
+      </instancedMesh>
+      {/* Keep the object's colour relevant: a faint tinted ground disc under the crowd. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, CROWD_ROWS * 0.4]} raycast={ignoreRaycast}>
+        <planeGeometry args={[CROWD_COLS * 0.85, CROWD_ROWS * 0.9]} />
+        <meshStandardMaterial color={object.color} transparent opacity={0.25} roughness={1} />
+      </mesh>
+    </group>
   );
 }
 

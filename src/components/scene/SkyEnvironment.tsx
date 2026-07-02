@@ -12,6 +12,7 @@ import { useShowStore } from '../../store/useShowStore';
 
 interface Sky {
   sunPos: [number, number, number];
+  moonPos: [number, number, number];
   sunColor: string;
   sunIntensity: number;
   top: THREE.Color;
@@ -21,6 +22,7 @@ interface Sky {
   ambient: number;
   bg: string;
   day: number;
+  night: number;
 }
 
 /** Derive the whole lighting/colour model from the three sky settings. */
@@ -44,6 +46,7 @@ function computeSky(hour: number, dayB: number, nightB: number): Sky {
 
   return {
     sunPos: [Math.cos(t) * 60, Math.sin(t) * 60 + 3, -25],
+    moonPos: [-Math.cos(t) * 60, -Math.sin(t) * 60 + 3, -25],
     sunColor: `#${sunColor.getHexString()}`,
     sunIntensity: day * dayB * 2.6,
     top,
@@ -53,6 +56,7 @@ function computeSky(hour: number, dayB: number, nightB: number): Sky {
     ambient: day * dayB * 0.22 + (1 - day) * nightB * 0.55,
     bg: `#${bottom.getHexString()}`,
     day,
+    night: Math.max(0, 1 - day * 3), // fully 1 once the sun is well down
   };
 }
 
@@ -83,14 +87,43 @@ const FRAG = /* glsl */ `
   }
 `;
 
+/** Random star field on the upper sky dome (positions built once). */
+function buildStars(count: number, radius: number): Float32Array {
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    let x = 0;
+    let y = 0;
+    let z = 0;
+    let d = 0;
+    do {
+      x = Math.random() * 2 - 1;
+      y = Math.random();
+      z = Math.random() * 2 - 1;
+      d = Math.hypot(x, y, z);
+    } while (d > 1 || d < 0.01 || y / d < 0.06);
+    arr[i * 3] = (x / d) * radius;
+    arr[i * 3 + 1] = (y / d) * radius;
+    arr[i * 3 + 2] = (z / d) * radius;
+  }
+  return arr;
+}
+
 export function SkyEnvironment() {
   const hour = useShowStore((s) => s.project.settings.timeOfDay ?? 13);
   const dayB = useShowStore((s) => s.project.settings.dayBrightness ?? 1);
   const nightB = useShowStore((s) => s.project.settings.nightBrightness ?? 0.12);
   const fog = useShowStore((s) => s.project.settings.fog);
   const workLight = useShowStore((s) => s.workLight);
+  const high = useShowStore((s) => s.quality === 'high');
 
   const sky = useMemo(() => computeSky(hour, dayB, nightB), [hour, dayB, nightB]);
+
+  const starGeo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(buildStars(550, 430), 3));
+    return g;
+  }, []);
+  useEffect(() => () => starGeo.dispose(), [starGeo]);
 
   const skyMat = useMemo(() => {
     const dir = new THREE.Vector3(...sky.sunPos).normalize();
@@ -123,10 +156,47 @@ export function SkyEnvironment() {
         <sphereGeometry args={[450, 32, 16]} />
       </mesh>
 
+      {/* Stars + moon fade in at night */}
+      {sky.night > 0.02 && (
+        <>
+          <points geometry={starGeo} frustumCulled={false}>
+            <pointsMaterial
+              size={1.7}
+              sizeAttenuation={false}
+              color="#e5edff"
+              transparent
+              opacity={sky.night * 0.9}
+              depthWrite={false}
+              fog={false}
+            />
+          </points>
+          <mesh position={sky.moonPos} frustumCulled={false}>
+            <sphereGeometry args={[3.2, 16, 16]} />
+            <meshBasicMaterial color="#e9eff8" transparent opacity={sky.night} fog={false} toneMapped={false} />
+          </mesh>
+        </>
+      )}
+
       {/* Natural lighting */}
       <ambientLight intensity={sky.ambient} color={sky.hemiSky} />
       <hemisphereLight args={[sky.hemiSky, '#3a3d42', sky.hemiIntensity]} />
-      <directionalLight position={sky.sunPos} intensity={sky.sunIntensity} color={sky.sunColor} />
+      {/* Sun — casts real shadows during the day (High quality). */}
+      <directionalLight
+        position={sky.sunPos}
+        intensity={sky.sunIntensity}
+        color={sky.sunColor}
+        castShadow={high && sky.day > 0.03}
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-left={-45}
+        shadow-camera-right={45}
+        shadow-camera-top={45}
+        shadow-camera-bottom={-45}
+        shadow-camera-near={1}
+        shadow-camera-far={220}
+        shadow-bias={-0.0004}
+      />
+      {/* Cool moonlight so the night isn't pitch black. */}
+      <directionalLight position={sky.moonPos} intensity={sky.night * nightB * 1.1} color="#9fb4d8" />
     </group>
   );
 }

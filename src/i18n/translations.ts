@@ -247,6 +247,8 @@ const en: Dict = {
   'sky.day': 'Day brightness',
   'sky.night': 'Night brightness',
   'sky.fog': 'Ground fog',
+  'sky.presetDay': 'Day',
+  'sky.presetNight': 'Night',
   'state.on': 'On',
   'state.off': 'Off',
 
@@ -558,6 +560,8 @@ const fr: Dict = {
   'sky.day': 'Luminosité jour',
   'sky.night': 'Luminosité nuit',
   'sky.fog': 'Brouillard au sol',
+  'sky.presetDay': 'Jour',
+  'sky.presetNight': 'Nuit',
   'state.on': 'Oui',
   'state.off': 'Non',
 

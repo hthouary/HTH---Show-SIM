@@ -84,6 +84,22 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
   const [box, setBox] = useState<THREE.Box3 | null>(null);
   const dragStart = useRef<THREE.Vector3 | null>(null);
 
+  // Solid bodies cast / receive the sun's shadows. Beams, flares and particles
+  // are marked non-raycastable or use non-standard materials — skipped, so the
+  // light a fixture throws never casts a shadow itself.
+  useLayoutEffect(() => {
+    if (!node) return;
+    node.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || m.raycast === ignoreRaycast) return;
+      const mat = m.material as THREE.MeshStandardMaterial;
+      if (mat && mat.isMeshStandardMaterial) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+  }, [node, object.type]);
+
   // A white outline box around the object's *body* (excluding the long beams /
   // laser fans / particle fields), recomputed when it becomes highlighted or moves.
   useLayoutEffect(() => {

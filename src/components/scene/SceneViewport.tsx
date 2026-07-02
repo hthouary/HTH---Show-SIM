@@ -34,7 +34,9 @@ function ToggleButton({
       title={title}
     >
       <Icon name={icon} size={13} />
-      {label}: {active ? t('state.on') : t('state.off')}
+      <span className="hidden sm:inline">
+        {label}: {active ? t('state.on') : t('state.off')}
+      </span>
     </button>
   );
 }
@@ -98,7 +100,8 @@ function SkyControls() {
         }`}
         title={t('sky.title')}
       >
-        <Icon name="sun" size={13} /> {t('sky.title')}
+        <Icon name="sun" size={13} />
+        <span className="hidden sm:inline">{t('sky.title')}</span>
       </button>
       {open && (
         <>
@@ -106,6 +109,21 @@ function SkyControls() {
           <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-xl border border-ink-700 bg-ink-900/95 p-3 shadow-2xl backdrop-blur">
             <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               <Icon name="sun" size={13} className="text-accent-cyan" /> {t('sky.title')}
+            </div>
+            {/* Quick day / night presets */}
+            <div className="mb-3 flex gap-2">
+              <button
+                className="btn flex-1 justify-center"
+                onClick={() => setSettings({ timeOfDay: 13 })}
+              >
+                <Icon name="sun" size={13} /> {t('sky.presetDay')}
+              </button>
+              <button
+                className="btn flex-1 justify-center"
+                onClick={() => setSettings({ timeOfDay: 22 })}
+              >
+                <Icon name="moon" size={13} /> {t('sky.presetNight')}
+              </button>
             </div>
             <SkySlider label={t('sky.time')} value={hour} min={0} max={24} step={0.25} display={clock} onChange={(v) => setSettings({ timeOfDay: v })} />
             <SkySlider label={t('sky.day')} value={dayB} min={0} max={2} step={0.05} display={dayB.toFixed(2)} onChange={(v) => setSettings({ dayBrightness: v })} />
@@ -199,7 +217,9 @@ function ViewportOverlay({
           title={t('toggle.quality.title')}
         >
           <Icon name="box" size={13} />
-          {t('toggle.quality')}: {quality === 'high' ? t('quality.high') : t('quality.low')}
+          <span className="hidden sm:inline">
+            {t('toggle.quality')}: {quality === 'high' ? t('quality.high') : t('quality.low')}
+          </span>
         </button>
       </div>
 
@@ -263,6 +283,7 @@ export function SceneViewport() {
       }}
     >
       <Canvas
+        shadows
         dpr={[1, 2]}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
         camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 1200 }}
