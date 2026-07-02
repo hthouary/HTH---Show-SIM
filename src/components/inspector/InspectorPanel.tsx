@@ -107,6 +107,37 @@ function MultiInspector() {
   );
 }
 
+/** Panel shown when 2+ timeline events are selected: copy / paste / delete. */
+function MultiEventInspector() {
+  const ids = useShowStore((s) => s.selectedEventIds);
+  const copy = useShowStore((s) => s.copyEventSelection);
+  const paste = useShowStore((s) => s.pasteClipboard);
+  const del = useShowStore((s) => s.deleteEventSelection);
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-ink-700 text-accent-cyan">
+          <Icon name="music" size={16} />
+        </span>
+        <div className="text-sm font-medium text-slate-200">{t('multi.events', { n: ids.length })}</div>
+      </div>
+      <p className="text-xs text-slate-500">{t('multi.eventsHint')}</p>
+      <div className="flex gap-2">
+        <button className="btn flex-1" onClick={copy}>
+          <Icon name="copy" size={14} /> {t('action.copy')}
+        </button>
+        <button className="btn flex-1" onClick={paste}>
+          <Icon name="download" size={14} /> {t('action.paste')}
+        </button>
+      </div>
+      <button className="btn btn-danger" onClick={del}>
+        <Icon name="trash" size={14} /> {t('multi.deleteAll')}
+      </button>
+    </div>
+  );
+}
+
 function ObjectInspector({ object }: { object: SceneObject }) {
   const update = useShowStore((s) => s.updateObject);
   const remove = useShowStore((s) => s.deleteObject);
@@ -192,6 +223,7 @@ export function InspectorPanel() {
   const object = useShowStore(selectSelectedObject);
   const event = useShowStore(selectSelectedEvent);
   const multi = useShowStore((s) => s.selectedObjectIds.length > 1);
+  const multiEvent = useShowStore((s) => s.selectedEventIds.length > 1);
   const selectObject = useShowStore((s) => s.selectObject);
   const t = useT();
 
@@ -213,6 +245,8 @@ export function InspectorPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {multi ? (
           <MultiInspector />
+        ) : multiEvent ? (
+          <MultiEventInspector />
         ) : object ? (
           <ObjectInspector object={object} />
         ) : event ? (

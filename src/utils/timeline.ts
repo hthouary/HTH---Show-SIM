@@ -106,6 +106,34 @@ export function resizeEvent(
   return { time: round(newStart), duration: round(end - newStart) };
 }
 
+/**
+ * Largest time shift (towards `dt`) a group of selected events can make while
+ * staying on their lanes without crossing any *non-selected* neighbour or the
+ * show bounds. Selected events move together so they never collide with each
+ * other. Always returns a value with the same feasible range around 0, so the
+ * group can be dragged freely until it hits an obstacle.
+ */
+export function clampGroupShift(events: ShowEvent[], ids: string[], dt: number, showDur: number): number {
+  const idset = new Set(ids);
+  let minDt = -Infinity;
+  let maxDt = Infinity;
+  for (const e of events) {
+    if (!idset.has(e.id)) continue;
+    let leftBound = 0;
+    let rightBound = showDur;
+    for (const o of events) {
+      if (o.lane !== e.lane || idset.has(o.id)) continue;
+      if (o.time + o.duration <= e.time + 1e-6) leftBound = Math.max(leftBound, o.time + o.duration);
+      if (o.time + 1e-6 >= e.time + e.duration) rightBound = Math.min(rightBound, o.time);
+    }
+    minDt = Math.max(minDt, leftBound - e.time);
+    maxDt = Math.min(maxDt, rightBound - e.duration - e.time);
+  }
+  if (!Number.isFinite(minDt)) minDt = 0;
+  if (!Number.isFinite(maxDt)) maxDt = 0;
+  return round(clamp(dt, Math.min(0, minDt), Math.max(0, maxDt)));
+}
+
 const LANE_LABEL: Record<string, string> = {
   lights: 'Lights',
   lasers: 'Lasers',

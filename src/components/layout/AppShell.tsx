@@ -34,8 +34,12 @@ export function AppShell() {
   usePlaybackClock();
   const togglePlay = useShowStore((s) => s.togglePlay);
   const deleteObject = useShowStore((s) => s.deleteObject);
+  const deleteEventSelection = useShowStore((s) => s.deleteEventSelection);
   const duplicateSelection = useShowStore((s) => s.duplicateSelection);
+  const copyEventSelection = useShowStore((s) => s.copyEventSelection);
+  const pasteClipboard = useShowStore((s) => s.pasteClipboard);
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
+  const selectedEventId = useShowStore((s) => s.selectedEventId);
   const undo = useShowStore((s) => s.undo);
   const redo = useShowStore((s) => s.redo);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
@@ -70,22 +74,52 @@ export function AppShell() {
         duplicateSelection();
         return;
       }
+      // Ctrl / Cmd + C / V copy & paste timeline events.
+      if (!typing && (e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+        if (selectedEventId) {
+          e.preventDefault();
+          copyEventSelection();
+        }
+        return;
+      }
+      if (!typing && (e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        pasteClipboard();
+        return;
+      }
 
       if (typing) return;
       if (e.code === 'Space') {
         e.preventDefault();
         togglePlay();
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
-        e.preventDefault();
-        deleteObject(selectedObjectId);
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedObjectId) {
+          e.preventDefault();
+          deleteObject(selectedObjectId);
+        } else if (selectedEventId) {
+          e.preventDefault();
+          deleteEventSelection();
+        }
       }
       if (e.key === 'w' || e.key === 'W') setGizmoMode('translate');
       if (e.key === 'e' || e.key === 'E') setGizmoMode('rotate');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, deleteObject, duplicateSelection, selectedObjectId, undo, redo, setGizmoMode]);
+  }, [
+    togglePlay,
+    deleteObject,
+    deleteEventSelection,
+    duplicateSelection,
+    copyEventSelection,
+    pasteClipboard,
+    selectedObjectId,
+    selectedEventId,
+    undo,
+    redo,
+    setGizmoMode,
+  ]);
 
   const isMobile = useIsMobile();
 

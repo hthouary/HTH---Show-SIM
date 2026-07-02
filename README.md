@@ -134,13 +134,18 @@ A switch in the top bar flips between the two ways you work on a show:
   faux pattern for the demo), second ruler, draggable event clips, scrub
   playhead, per-track “add event”, full event editor (track/type/target/time/
   duration/params).
+- **Timeline power-editing** — Shift-click to multi-select clips, drag one to
+  move the group, copy/paste at the playhead (`Ctrl/Cmd+C`/`V`), horizontal
+  **zoom** (with a Fit button) for longer shows, and one-click **templates**
+  (strobe build-up, laser hit, CO2 drop, blackout + flash).
 - **Audio** — import a local file, play / pause / stop / seek, analyser-driven
   reactivity, clean teardown. The track is **kept in IndexedDB per project**, so
   a saved show plays back with its audio after a reload — no re-importing.
 - **Projects** — New (with confirm), Save / Load via `localStorage`, Export /
   Import JSON, defensive sanitisation of loaded files.
 - **Shortcuts** — `Space` play/pause, `Delete`/`Backspace` remove selection,
-  `Ctrl/Cmd+D` duplicate, `Ctrl/Cmd+Z` undo / redo, `W`/`E` move / rotate.
+  `Ctrl/Cmd+D` duplicate, `Ctrl/Cmd+C`/`V` copy / paste clips, `Ctrl/Cmd+Z`
+  undo / redo, `W`/`E` move / rotate.
 
 ---
 
@@ -153,11 +158,27 @@ A switch in the top bar flips between the two ways you work on a show:
   exported JSON, so a shared export still needs its track re-imported.
 - Single large JS bundle (Three.js) — no code-splitting tuning yet.
 
-## Possible next steps
+## Roadmap
 
-- Drag-and-drop from the library into the 3D scene with placement gizmos.
-- Transform gizmos (move/rotate) in the viewport.
-- Undo/redo history and multi-select.
-- Beat grid / BPM snapping and copy-paste of timeline clips.
-- More fixtures (gobos, pixel bars), beam textures and reflective floor.
+Already shipped: real in-viewport transform gizmos (move/rotate, `W`/`E`),
+undo/redo with a coalesced history, Build/Show modes, magnetic + grid snapping,
+object multi-select with align / distribute / array / mirror, truss rigging,
+per-project audio persistence, and full timeline power-editing (event
+multi-select, group move, copy/paste, horizontal zoom and quick templates).
+
+**Short term**
+
+- Editor: drag-and-drop from the library into the viewport, a scale gizmo and
+  Alt-drag duplicate.
+- Timeline: musical markers (intro / build / drop / break / outro).
+
+**Medium term**
+
+- Unit tests (Vitest) for the event engine, project sanitisation and the store.
+- Bundle export (project + audio) as a single shareable file.
+- Performance: lazy-load the 3D layer, particle pooling and a dedicated perf mode.
+
+**Long term**
+
+- More fixtures (gobos, pixel bars), beam textures and a reflective floor.
 - Optional backend for cloud project storage and audio hosting.

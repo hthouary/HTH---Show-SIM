@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppMode, Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
+import type { AppMode, Lane, Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
 import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
@@ -7,6 +7,7 @@ import { deleteAudio, getAudio, putAudio } from '../utils/audioStore';
 import { resolvePlacement, type PlacementSettings } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
 import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
+import { TEMPLATES, type TemplateKey } from '../data/templates';
 import { translate, type Lang } from '../i18n/translations';
 import {
   getLastProjectId,
@@ -31,7 +32,10 @@ interface ShowState {
   selectedObjectId: string | null;
   /** Full multi-selection set (includes the primary id). */
   selectedObjectIds: string[];
+  /** Primary / anchor timeline event. */
   selectedEventId: string | null;
+  /** Full event multi-selection set (includes the primary id). */
+  selectedEventIds: string[];
 
   // ---- Playback -------------------------------------------------------
   isPlaying: boolean;
@@ -42,6 +46,8 @@ interface ShowState {
 
   // ---- Transient UI ---------------------------------------------------
   toasts: Toast[];
+  /** Copied timeline events, ready to paste at the playhead. */
+  clipboard: ShowEvent[];
   /** Current working mode: build (construction sandbox) or show (timeline). */
   appMode: AppMode;
   /** When set, the next click in the scene places an object of this type. */
@@ -138,6 +144,18 @@ interface ShowState {
   duplicateEvent: (id: string) => void;
   deleteEvent: (id: string) => void;
   selectEvent: (id: string | null) => void;
+  /** Toggle an event in/out of the multi-selection (Shift-click). */
+  toggleSelectEvent: (id: string) => void;
+  /** Batch-set event start times (used by group drag). */
+  applyEventTimes: (times: Record<string, number>) => void;
+  /** Delete every selected event. */
+  deleteEventSelection: () => void;
+  /** Copy the selected events to the clipboard. */
+  copyEventSelection: () => void;
+  /** Paste the clipboard at the playhead. */
+  pasteClipboard: () => void;
+  /** Stamp a ready-made event group at the playhead. */
+  addTemplate: (key: TemplateKey) => void;
 
   // ---- Playback actions ----------------------------------------------
   play: () => void;
@@ -286,11 +304,13 @@ export const useShowStore = create<ShowState>((set, get) => {
     selectedObjectId: null,
     selectedObjectIds: [],
     selectedEventId: null,
+    selectedEventIds: [],
     isPlaying: false,
     currentTime: 0,
     duration: startProject.settings.duration,
     hasAudio: false,
     toasts: [],
+    clipboard: [],
     appMode: buildPrefs.appMode,
     placementType: null,
     collisions: buildPrefs.collisions,
@@ -470,7 +490,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     selectObject: (id) =>
-      set({ selectedObjectId: id, selectedObjectIds: id ? [id] : [], selectedEventId: null }),
+      set({ selectedObjectId: id, selectedObjectIds: id ? [id] : [], selectedEventId: null, selectedEventIds: [] }),
 
     toggleSelectObject: (id) =>
       set((s) => {
@@ -480,6 +500,7 @@ export const useShowStore = create<ShowState>((set, get) => {
           selectedObjectIds: ids,
           selectedObjectId: has ? (ids[ids.length - 1] ?? null) : id,
           selectedEventId: null,
+          selectedEventIds: [],
         };
       }),
 
@@ -700,17 +721,19 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     removeLane: (id) => {
       record('remove-lane');
-      set((s) => ({
-        project: {
-          ...s.project,
-          lanes: s.project.lanes.filter((l) => l.id !== id),
-          events: s.project.events.filter((e) => e.lane !== id),
-          updatedAt: Date.now(),
-        },
-        selectedEventId: s.project.events.some((e) => e.lane === id && e.id === s.selectedEventId)
-          ? null
-          : s.selectedEventId,
-      }));
+      set((s) => {
+        const removed = new Set(s.project.events.filter((e) => e.lane === id).map((e) => e.id));
+        return {
+          project: {
+            ...s.project,
+            lanes: s.project.lanes.filter((l) => l.id !== id),
+            events: s.project.events.filter((e) => e.lane !== id),
+            updatedAt: Date.now(),
+          },
+          selectedEventId: removed.has(s.selectedEventId ?? '') ? null : s.selectedEventId,
+          selectedEventIds: s.selectedEventIds.filter((x) => !removed.has(x)),
+        };
+      });
     },
 
     renameLane: (id, name) => {
@@ -751,6 +774,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       set((st) => ({
         project: { ...st.project, events: [...st.project.events, event], updatedAt: Date.now() },
         selectedEventId: event.id,
+        selectedEventIds: [event.id],
         selectedObjectId: null,
         selectedObjectIds: [],
       }));
@@ -814,6 +838,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       set((st) => ({
         project: { ...st.project, events: [...st.project.events, copy], updatedAt: Date.now() },
         selectedEventId: copy.id,
+        selectedEventIds: [copy.id],
       }));
     },
 
@@ -837,10 +862,173 @@ export const useShowStore = create<ShowState>((set, get) => {
           updatedAt: Date.now(),
         },
         selectedEventId: s.selectedEventId === id ? null : s.selectedEventId,
+        selectedEventIds: s.selectedEventIds.filter((x) => x !== id),
       }));
     },
 
-    selectEvent: (id) => set({ selectedEventId: id, selectedObjectId: null, selectedObjectIds: [] }),
+    selectEvent: (id) =>
+      set({ selectedEventId: id, selectedEventIds: id ? [id] : [], selectedObjectId: null, selectedObjectIds: [] }),
+
+    toggleSelectEvent: (id) =>
+      set((s) => {
+        const has = s.selectedEventIds.includes(id);
+        const ids = has ? s.selectedEventIds.filter((x) => x !== id) : [...s.selectedEventIds, id];
+        return {
+          selectedEventIds: ids,
+          selectedEventId: has ? (ids[ids.length - 1] ?? null) : id,
+          selectedObjectId: null,
+          selectedObjectIds: [],
+        };
+      }),
+
+    applyEventTimes: (times) => {
+      record('move-evt-group');
+      set((s) => ({
+        project: {
+          ...s.project,
+          events: s.project.events.map((e) => (times[e.id] !== undefined ? { ...e, time: times[e.id] } : e)),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    deleteEventSelection: () => {
+      const s = get();
+      const ids = s.selectedEventIds.length ? s.selectedEventIds : s.selectedEventId ? [s.selectedEventId] : [];
+      if (!ids.length) return;
+      record('delete-events');
+      const idset = new Set(ids);
+      set((st) => ({
+        project: { ...st.project, events: st.project.events.filter((e) => !idset.has(e.id)), updatedAt: Date.now() },
+        selectedEventId: null,
+        selectedEventIds: [],
+      }));
+    },
+
+    copyEventSelection: () => {
+      const s = get();
+      const sel = s.project.events.filter((e) => s.selectedEventIds.includes(e.id));
+      if (!sel.length) return;
+      set({ clipboard: sel.map((e) => ({ ...e, params: { ...e.params }, targets: [...e.targets] })) });
+      get().pushToast('info', tr('toast.copied', { n: sel.length }));
+    },
+
+    pasteClipboard: () => {
+      const s = get();
+      const clip = s.clipboard;
+      if (!clip.length) return;
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      const minTime = Math.min(...clip.map((e) => e.time));
+      const offset = Math.min(s.currentTime, s.duration) - minTime;
+      const working = [...s.project.events];
+      const laneIds = s.project.lanes.map((l) => l.id);
+      const newLanes: Lane[] = [];
+      const added: ShowEvent[] = [];
+      const tryPlace = (laneId: string, dur: number, desired: number) =>
+        firstFreeStart(
+          working.filter((w) => w.lane === laneId).map((w) => ({ time: w.time, duration: w.duration })),
+          dur,
+          s.duration,
+          desired,
+        );
+
+      for (const e of clip) {
+        const dur = Math.min(e.duration, s.duration);
+        const desired = Math.max(0, e.time + offset);
+        let lane = laneIds.includes(e.lane) ? e.lane : laneIds[0] ?? null;
+        let start = lane ? tryPlace(lane, dur, desired) : null;
+        // Full? scan the other lanes for room…
+        if (start == null) {
+          for (const lid of laneIds) {
+            const st = tryPlace(lid, dur, desired);
+            if (st != null) {
+              lane = lid;
+              start = st;
+              break;
+            }
+          }
+        }
+        // …still no room? drop it on a fresh lane so paste always lands.
+        if (start == null || lane == null) {
+          const id = createId('lane');
+          newLanes.push({ id, name: `${tr('timeline.lane')} ${s.project.lanes.length + newLanes.length + 1}` });
+          laneIds.push(id);
+          lane = id;
+          start = Math.max(0, Math.min(desired, s.duration - dur));
+        }
+        const copy: ShowEvent = {
+          ...e,
+          id: createId('evt'),
+          lane,
+          time: r2(start),
+          duration: r2(Math.max(0.2, Math.min(dur, s.duration - start))),
+          params: { ...e.params },
+          targets: [...e.targets],
+        };
+        added.push(copy);
+        working.push(copy);
+      }
+      if (!added.length) {
+        get().pushToast('error', tr('toast.noRoom'));
+        return;
+      }
+      record('paste');
+      set((st) => ({
+        project: {
+          ...st.project,
+          lanes: [...st.project.lanes, ...newLanes],
+          events: [...st.project.events, ...added],
+          updatedAt: Date.now(),
+        },
+        selectedEventId: added[added.length - 1].id,
+        selectedEventIds: added.map((a) => a.id),
+        selectedObjectId: null,
+        selectedObjectIds: [],
+      }));
+      get().pushToast('success', tr('toast.pasted', { n: added.length }));
+    },
+
+    addTemplate: (key) => {
+      const tpl = TEMPLATES[key];
+      const s = get();
+      record('template');
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      const t0 = Math.min(s.currentTime, s.duration);
+      const baseName = tr(`template.${key}`);
+      const laneIds: string[] = [];
+      const newLanes: Lane[] = [];
+      for (let r = 0; r < tpl.rows; r++) {
+        const id = createId('lane');
+        laneIds.push(id);
+        newLanes.push({ id, name: tpl.rows > 1 ? `${baseName} ${r + 1}` : baseName });
+      }
+      const newEvents: ShowEvent[] = tpl.events.map((te) => {
+        const dur = Math.min(te.duration, s.duration);
+        const start = Math.max(0, Math.min(t0 + te.at, s.duration - dur));
+        return {
+          id: createId('evt'),
+          lane: laneIds[te.row],
+          time: r2(start),
+          duration: r2(Math.max(0.2, dur)),
+          type: te.type,
+          targets: [],
+          params: { ...te.params },
+        };
+      });
+      set((st) => ({
+        project: {
+          ...st.project,
+          lanes: [...st.project.lanes, ...newLanes],
+          events: [...st.project.events, ...newEvents],
+          updatedAt: Date.now(),
+        },
+        selectedEventId: newEvents[0]?.id ?? null,
+        selectedEventIds: newEvents.map((e) => e.id),
+        selectedObjectId: null,
+        selectedObjectIds: [],
+      }));
+      get().pushToast('success', tr('toast.template', { name: baseName }));
+    },
 
     // -------------------------------------------------------------- Playback
     play: () => {
@@ -965,6 +1153,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         selectedObjectId: null,
         selectedObjectIds: [],
         selectedEventId: null,
+        selectedEventIds: [],
         isPlaying: false,
         currentTime: 0,
         duration: 90,
@@ -1010,6 +1199,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         selectedObjectId: null,
         selectedObjectIds: [],
         selectedEventId: null,
+        selectedEventIds: [],
         isPlaying: false,
         currentTime: 0,
         duration: project.settings.duration,

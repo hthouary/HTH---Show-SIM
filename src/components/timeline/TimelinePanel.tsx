@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShowStore } from '../../store/useShowStore';
 import type { Lane } from '../../types/show';
 import { eventColor } from '../../data/catalog';
+import { TEMPLATE_LIST, type TemplateKey } from '../../data/templates';
 import { audioEngine, formatTime } from '../../utils/audio';
 import { Icon } from '../ui/Icon';
 import { AudioControls } from './AudioControls';
@@ -12,7 +13,7 @@ import { useT } from '../../i18n/useT';
 const RULER_H = 22;
 const WAVE_H = 40;
 const LANE_H = 34;
-const LABEL_W = 128; // px — must match the w-32 label cells
+const LABEL_W = 128; // px — must match the label cells
 
 /** Time ruler with second graduations. */
 function Ruler() {
@@ -111,7 +112,7 @@ function LaneLabel({ lane }: { lane: Lane }) {
   const addBlock = useShowStore((s) => s.addBlock);
   const t = useT();
   return (
-    <div className="group flex w-32 shrink-0 items-center gap-1 border-b border-r border-ink-700/70 bg-ink-850 px-2" style={{ height: LANE_H }}>
+    <div className="group flex h-full w-full items-center gap-1 border-b border-r border-ink-700/70 bg-ink-850 px-2">
       <input
         className="min-w-0 flex-1 bg-transparent text-xs font-medium text-slate-300 outline-none focus:text-white"
         value={lane.name}
@@ -136,6 +137,58 @@ function LaneLabel({ lane }: { lane: Lane }) {
   );
 }
 
+/** Dropdown that stamps a ready-made event group at the playhead. */
+function TemplatesMenu() {
+  const addTemplate = useShowStore((s) => s.addTemplate);
+  const [open, setOpen] = useState(false);
+  const t = useT();
+  return (
+    <div className="relative shrink-0">
+      <button className="btn h-7 whitespace-nowrap px-2" onClick={() => setOpen((o) => !o)} title={t('timeline.templates.title')}>
+        <Icon name="sparkles" size={13} /> {t('timeline.templates')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-xl border border-ink-700 bg-ink-900 p-1.5 shadow-2xl">
+            {TEMPLATE_LIST.map((key) => (
+              <button
+                key={key}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-slate-200 hover:bg-ink-800"
+                onClick={() => {
+                  addTemplate(key as TemplateKey);
+                  setOpen(false);
+                }}
+              >
+                <Icon name="bolt" size={13} className="text-accent-cyan" />
+                {t(`template.${key}`)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Horizontal zoom controls for the timeline. */
+function ZoomControls({ onOut, onIn, onFit }: { onOut: () => void; onIn: () => void; onFit: () => void }) {
+  const t = useT();
+  return (
+    <div className="flex shrink-0 items-center rounded-md border border-ink-700 bg-ink-850" title={t('timeline.zoom')}>
+      <button className="grid h-7 w-7 place-items-center text-slate-400 hover:text-slate-100" onClick={onOut} title={t('timeline.zoomOut')}>
+        <Icon name="minus" size={14} />
+      </button>
+      <button className="border-x border-ink-700 px-2 py-1 text-[11px] text-slate-300 hover:text-white" onClick={onFit} title={t('timeline.zoomFit')}>
+        {t('timeline.zoomFit')}
+      </button>
+      <button className="grid h-7 w-7 place-items-center text-slate-400 hover:text-slate-100" onClick={onIn} title={t('timeline.zoomIn')}>
+        <Icon name="plus" size={14} />
+      </button>
+    </div>
+  );
+}
+
 export function TimelinePanel() {
   const lanes = useShowStore((s) => s.project.lanes);
   const events = useShowStore((s) => s.project.events);
@@ -145,6 +198,24 @@ export function TimelinePanel() {
   const selectEvent = useShowStore((s) => s.selectEvent);
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Horizontal zoom in pixels-per-second; fit to the viewport on first layout.
+  const [pxPerSec, setPxPerSec] = useState(12);
+  const contentWidth = Math.max(duration * pxPerSec, 1);
+
+  const fit = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const w = el.clientWidth - LABEL_W;
+    if (w > 0) setPxPerSec(Math.max(3, w / duration));
+  };
+  useEffect(() => {
+    const id = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const zoomOut = () => setPxPerSec((p) => Math.max(3, p / 1.35));
+  const zoomIn = () => setPxPerSec((p) => Math.min(160, p * 1.35));
 
   const seekFromEvent = (e: React.PointerEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -173,60 +244,74 @@ export function TimelinePanel() {
     >
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center gap-3 overflow-x-auto border-b border-ink-700/70 px-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           <Icon name="music" size={14} /> {t('timeline.title')}
         </div>
         <BpmControls />
+        <TemplatesMenu />
         <button className="btn h-7 shrink-0 whitespace-nowrap px-2" onClick={addLane} title={t('timeline.addLane')}>
           <Icon name="plus" size={13} /> {t('timeline.addLane')}
         </button>
+        <ZoomControls onOut={zoomOut} onIn={zoomIn} onFit={fit} />
         <div className="ml-auto flex items-center gap-2">
           <AudioControls />
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* Ruler + waveform (fixed) */}
-        <div className="flex shrink-0">
-          <div className="w-32 shrink-0 border-r border-ink-700/70 bg-ink-850">
-            <div style={{ height: RULER_H }} />
-            <div className="flex items-center gap-1.5 border-b border-t border-ink-700/70 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500" style={{ height: WAVE_H }}>
-              <Icon name="music" size={12} /> {t('timeline.audio')}
-            </div>
-          </div>
-          <div className="relative flex-1 cursor-text select-none" onPointerDown={seekFromEvent}>
-            <div className="border-b border-ink-700/70 bg-ink-850" style={{ height: RULER_H }}>
+      {/* Scrollable grid: sticky ruler/waveform (top) + sticky labels (left) */}
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
+        <div className="relative" style={{ width: LABEL_W + contentWidth, minWidth: '100%' }}>
+          {/* Ruler row */}
+          <div className="sticky top-0 z-30 flex">
+            <div className="sticky left-0 z-40 shrink-0 border-b border-r border-ink-700/70 bg-ink-850" style={{ width: LABEL_W, height: RULER_H }} />
+            <div className="shrink-0 border-b border-ink-700/70 bg-ink-850" style={{ width: contentWidth, height: RULER_H }} onPointerDown={seekFromEvent}>
               <Ruler />
             </div>
-            <div className="border-b border-ink-700/70" style={{ height: WAVE_H }}>
+          </div>
+
+          {/* Waveform row */}
+          <div className="sticky z-20 flex" style={{ top: RULER_H }}>
+            <div
+              className="sticky left-0 z-30 flex shrink-0 items-center gap-1.5 border-b border-r border-ink-700/70 bg-ink-850 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+              style={{ width: LABEL_W, height: WAVE_H }}
+            >
+              <Icon name="music" size={12} /> {t('timeline.audio')}
+            </div>
+            <div className="shrink-0 border-b border-ink-700/70" style={{ width: contentWidth, height: WAVE_H }} onPointerDown={seekFromEvent}>
               <WaveformLane />
             </div>
           </div>
-        </div>
 
-        {/* Lanes (vertical scroll) */}
-        <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
+          {/* Lanes */}
           {lanes.length === 0 ? (
             <div className="px-4 py-6 text-center text-xs text-slate-600">{t('timeline.emptyLanes')}</div>
           ) : (
-            <div className="relative">
-              {lanes.map((lane) => (
-                <div key={lane.id} data-lane-id={lane.id} className="flex" style={{ height: LANE_H }}>
+            lanes.map((lane) => (
+              <div key={lane.id} data-lane-id={lane.id} className="flex" style={{ height: LANE_H }}>
+                <div className="sticky left-0 z-20 shrink-0" style={{ width: LABEL_W, height: LANE_H }}>
                   <LaneLabel lane={lane} />
-                  <div data-lane-track className="relative flex-1 border-b border-ink-700/40" onPointerDown={seekFromEvent}>
-                    {events
-                      .filter((e) => e.lane === lane.id)
-                      .map((e) => (
-                        <EventBlock key={e.id} event={e} color={eventColor(e.type)} duration={duration} laneAtClientY={laneAtClientY} />
-                      ))}
-                  </div>
                 </div>
-              ))}
-              {/* Grid + playhead overlay the track area (offset past the labels) */}
-              <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: LABEL_W, right: 0 }}>
-                <BeatGrid />
-                <Playhead />
+                <div
+                  data-lane-track
+                  className="relative shrink-0 border-b border-ink-700/40"
+                  style={{ width: contentWidth, height: LANE_H }}
+                  onPointerDown={seekFromEvent}
+                >
+                  {events
+                    .filter((e) => e.lane === lane.id)
+                    .map((e) => (
+                      <EventBlock key={e.id} event={e} color={eventColor(e.type)} duration={duration} laneAtClientY={laneAtClientY} />
+                    ))}
+                </div>
               </div>
+            ))
+          )}
+
+          {/* Beat grid + playhead overlay the lane area (past ruler + waveform) */}
+          {lanes.length > 0 && (
+            <div className="pointer-events-none absolute z-10" style={{ left: LABEL_W, top: RULER_H + WAVE_H, width: contentWidth, bottom: 0 }}>
+              <BeatGrid />
+              <Playhead />
             </div>
           )}
         </div>

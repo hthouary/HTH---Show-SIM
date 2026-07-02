@@ -9,6 +9,7 @@ export type IconName =
   | 'pause'
   | 'stop'
   | 'plus'
+  | 'minus'
   | 'trash'
   | 'copy'
   | 'save'
@@ -63,6 +64,7 @@ const PATHS: Record<IconName, JSX.Element> = {
       <line x1="5" y1="12" x2="19" y2="12" />
     </>
   ),
+  minus: <line x1="5" y1="12" x2="19" y2="12" />,
   trash: (
     <>
       <path d="M4 7h16" />
