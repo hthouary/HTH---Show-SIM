@@ -12,7 +12,7 @@ import { SmokeEffect } from './SmokeEffect';
 import { FlameEffect } from './FlameEffect';
 import { CO2Effect } from './CO2Effect';
 import { ConfettiEffect } from './ConfettiEffect';
-import { CrowdBlock, DjBooth, Speaker, StagePlatform, Truss } from './props';
+import { CrowdBlock, DjBooth, Speaker, StagePlatform, Truss, TrussArch, TrussTower } from './props';
 import { ignoreRaycast } from './interaction';
 
 function renderBody(object: SceneObjectModel) {
@@ -21,6 +21,10 @@ function renderBody(object: SceneObjectModel) {
       return <StagePlatform object={object} />;
     case 'truss':
       return <Truss object={object} />;
+    case 'truss_tower':
+      return <TrussTower object={object} />;
+    case 'truss_arch':
+      return <TrussArch object={object} />;
     case 'speaker':
       return <Speaker object={object} />;
     case 'dj_booth':

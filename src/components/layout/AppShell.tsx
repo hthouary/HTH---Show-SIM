@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
+import { BuildToolbar } from './BuildToolbar';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { SceneViewport } from '../scene/SceneViewport';
 import { TimelinePanel } from '../timeline/TimelinePanel';
@@ -10,8 +11,10 @@ import { usePlaybackClock } from '../../utils/usePlaybackClock';
 import { useIsMobile } from '../../utils/useIsMobile';
 import { useShowStore } from '../../store/useShowStore';
 
-/** Desktop layout: top bar, left/center/right columns, bottom timeline. */
+/** Desktop layout: top bar, left/center/right columns, and a mode-dependent
+ *  bottom dock — the timeline in Show mode, the build toolbar in Build mode. */
 function DesktopShell() {
+  const buildMode = useShowStore((s) => s.appMode === 'build');
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
       <TopBar />
@@ -22,7 +25,7 @@ function DesktopShell() {
         </main>
         <InspectorPanel />
       </div>
-      <TimelinePanel />
+      {buildMode ? <BuildToolbar /> : <TimelinePanel />}
     </div>
   );
 }

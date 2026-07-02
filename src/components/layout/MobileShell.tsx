@@ -4,6 +4,7 @@ import { downloadProject } from '../../utils/project';
 import { Icon, type IconName } from '../ui/Icon';
 import { SceneViewport } from '../scene/SceneViewport';
 import { LeftPanel } from './LeftPanel';
+import { BuildToolbar } from './BuildToolbar';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { LoadProjectModal } from './LoadProjectModal';
@@ -37,6 +38,31 @@ function LanguageSwitch() {
             }`}
           >
             {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Build / Show mode toggle (compact) for the mobile menu. */
+function ModeSwitch() {
+  const appMode = useShowStore((s) => s.appMode);
+  const setAppMode = useShowStore((s) => s.setAppMode);
+  const t = useT();
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-400">{t('mode.title')}</span>
+      <div className="ml-auto flex items-center rounded-md border border-ink-700 bg-ink-850 p-0.5">
+        {(['build', 'show'] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setAppMode(m)}
+            className={`rounded px-2.5 py-1 text-xs font-semibold ${
+              appMode === m ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-slate-500'
+            }`}
+          >
+            {m === 'build' ? t('mode.build') : t('mode.show')}
           </button>
         ))}
       </div>
@@ -84,7 +110,8 @@ function MobileMenu({ onClose, onLoad, onImport }: { onClose: () => void; onLoad
         <Item icon="undo" label={t('action.undo')} onClick={act(undo)} disabled={!canUndo} />
         <Item icon="redo" label={t('action.redo')} onClick={act(redo)} disabled={!canRedo} />
         <div className="my-1 h-px bg-ink-700/70" />
-        <div className="px-2 py-2">
+        <div className="flex flex-col gap-2 px-2 py-2">
+          <ModeSwitch />
           <LanguageSwitch />
         </div>
       </div>
@@ -181,12 +208,14 @@ function BottomSheet({ open, height, onClose, children }: { open: boolean; heigh
 }
 
 /** Bottom navigation. */
-function TabBar({ tab, onPick }: { tab: Tab; onPick: (t: Tab) => void }) {
+function TabBar({ tab, onPick, buildMode }: { tab: Tab; onPick: (t: Tab) => void; buildMode: boolean }) {
   const t = useT();
   const tabs: { id: Tab; icon: IconName; label: string }[] = [
     { id: 'scene', icon: 'eye', label: t('nav.scene') },
     { id: 'library', icon: 'box', label: t('nav.library') },
-    { id: 'timeline', icon: 'music', label: t('nav.timeline') },
+    buildMode
+      ? { id: 'timeline', icon: 'grid', label: t('nav.build') }
+      : { id: 'timeline', icon: 'music', label: t('nav.timeline') },
     { id: 'inspector', icon: 'target', label: t('nav.inspector') },
   ];
   return (
@@ -222,6 +251,7 @@ export function MobileShell() {
   const [tab, setTab] = useState<Tab>('scene');
   const [panelTab, setPanelTab] = useState<PanelTab>('library');
 
+  const buildMode = useShowStore((s) => s.appMode === 'build');
   const placementType = useShowStore((s) => s.placementType);
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
   const selectedEventId = useShowStore((s) => s.selectedEventId);
@@ -250,7 +280,18 @@ export function MobileShell() {
   };
 
   const panel =
-    panelTab === 'library' ? <LeftPanel /> : panelTab === 'inspector' ? <InspectorPanel /> : <TimelinePanel />;
+    panelTab === 'library' ? (
+      <LeftPanel />
+    ) : panelTab === 'inspector' ? (
+      <InspectorPanel />
+    ) : buildMode ? (
+      <BuildToolbar />
+    ) : (
+      <TimelinePanel />
+    );
+
+  // The build toolbar is a slim bar, so its sheet is short.
+  const sheetHeight = panelTab === 'timeline' && buildMode ? '112px' : SHEET_HEIGHT[panelTab];
 
   return (
     <div className="flex h-[100dvh] w-screen flex-col overflow-hidden bg-ink-950">
@@ -258,12 +299,12 @@ export function MobileShell() {
 
       <main className="relative min-h-0 flex-1">
         <SceneViewport />
-        <BottomSheet open={tab !== 'scene'} height={SHEET_HEIGHT[panelTab]} onClose={() => setTab('scene')}>
+        <BottomSheet open={tab !== 'scene'} height={sheetHeight} onClose={() => setTab('scene')}>
           {panel}
         </BottomSheet>
       </main>
 
-      <TabBar tab={tab} onPick={pick} />
+      <TabBar tab={tab} onPick={pick} buildMode={buildMode} />
     </div>
   );
 }

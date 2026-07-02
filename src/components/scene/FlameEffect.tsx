@@ -5,7 +5,7 @@ import type { SceneObject } from '../../types/show';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor } from './particles';
 import { ignoreRaycast } from './interaction';
-import { EmitterBody } from './props';
+import { FlameJetBody } from './props';
 
 const VERT = /* glsl */ `
   varying vec2 vUv;
@@ -152,7 +152,7 @@ export function FlameEffect({ object }: { object: SceneObject }) {
 
   return (
     <>
-      <EmitterBody color={object.color} />
+      <FlameJetBody color={object.color} />
       <group ref={groupRef} visible={false}>
         {/* Rising smoke above the flame */}
         <mesh position={[0, 5.0, 0]} material={smokeMat} raycast={ignoreRaycast}>

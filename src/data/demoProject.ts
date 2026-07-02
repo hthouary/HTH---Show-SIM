@@ -23,8 +23,10 @@ export function createDemoProject(): Project {
   add(createSceneObject('led_screen', { name: 'Main Wall', position: [0, 5, -7], scale: 1.3 }));
   add(createSceneObject('truss', { name: 'Front Truss', position: [0, 6.2, -1], scale: 1.3 }));
   add(createSceneObject('truss', { name: 'Mid Truss', position: [0, 6.2, -4.5], scale: 1.3 }));
-  add(createSceneObject('speaker', { name: 'PA Left', position: [-8, 1.8, 1] }));
-  add(createSceneObject('speaker', { name: 'PA Right', position: [8, 1.8, 1] }));
+  add(createSceneObject('truss_tower', { name: 'Tower Left', position: [-9, 2.5, -1] }));
+  add(createSceneObject('truss_tower', { name: 'Tower Right', position: [9, 2.5, -1] }));
+  add(createSceneObject('speaker', { name: 'PA Left', position: [-7, 4.6, -1] }));
+  add(createSceneObject('speaker', { name: 'PA Right', position: [7, 4.6, -1] }));
   add(createSceneObject('crowd_block', { name: 'Crowd', position: [0, 0, 12], scale: 1.6 }));
 
   // ---- 8 moving heads on the front truss (4 spot + 4 wash) ---------------
@@ -49,14 +51,14 @@ export function createDemoProject(): Project {
   add(createSceneObject('laser', { name: 'Laser R', position: [6, 5.6, -3], target: [-2, 1.5, 10], color: '#22d3ee' }));
 
   // ---- 2 smoke machines, 2 flame jets, CO2 + confetti -------------------
-  add(createSceneObject('smoke_machine', { name: 'Hazer L', position: [-7, 0.3, -2] }));
-  add(createSceneObject('smoke_machine', { name: 'Hazer R', position: [7, 0.3, -2] }));
-  add(createSceneObject('flame_jet', { name: 'Flame L', position: [-4, 0.4, -2.5] }));
-  add(createSceneObject('flame_jet', { name: 'Flame R', position: [4, 0.4, -2.5] }));
-  add(createSceneObject('co2_jet', { name: 'CO2 L', position: [-2, 0.5, -1] }));
-  add(createSceneObject('co2_jet', { name: 'CO2 R', position: [2, 0.5, -1] }));
-  add(createSceneObject('confetti_cannon', { name: 'Confetti L', position: [-5, 0.6, 0] }));
-  add(createSceneObject('confetti_cannon', { name: 'Confetti R', position: [5, 0.6, 0] }));
+  add(createSceneObject('smoke_machine', { name: 'Hazer L', position: [-7, 0.22, -2] }));
+  add(createSceneObject('smoke_machine', { name: 'Hazer R', position: [7, 0.22, -2] }));
+  add(createSceneObject('flame_jet', { name: 'Flame L', position: [-4, 0.34, -2.5] }));
+  add(createSceneObject('flame_jet', { name: 'Flame R', position: [4, 0.34, -2.5] }));
+  add(createSceneObject('co2_jet', { name: 'CO2 L', position: [-2, 0.38, -1] }));
+  add(createSceneObject('co2_jet', { name: 'CO2 R', position: [2, 0.38, -1] }));
+  add(createSceneObject('confetti_cannon', { name: 'Confetti L', position: [-5, 0.42, 0] }));
+  add(createSceneObject('confetti_cannon', { name: 'Confetti R', position: [5, 0.42, 0] }));
 
   // ---- Timeline events (flat; assignLanes lays them onto lanes) ---------
   const events: ShowEvent[] = [];

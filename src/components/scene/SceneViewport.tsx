@@ -42,17 +42,13 @@ function ToggleButton({
 function ViewportOverlay({
   bloom,
   onToggleBloom,
-  workLight,
-  onToggleWorkLight,
 }: {
   bloom: boolean;
   onToggleBloom: () => void;
-  workLight: boolean;
-  onToggleWorkLight: () => void;
 }) {
   const objectCount = useShowStore((s) => s.project.objects.length);
-  const collisions = useShowStore((s) => s.collisions);
-  const toggleCollisions = useShowStore((s) => s.toggleCollisions);
+  const workLight = useShowStore((s) => s.workLight);
+  const toggleWorkLight = useShowStore((s) => s.toggleWorkLight);
   const quality = useShowStore((s) => s.quality);
   const toggleQuality = useShowStore((s) => s.toggleQuality);
   const placementType = useShowStore((s) => s.placementType);
@@ -92,15 +88,8 @@ function ViewportOverlay({
       {/* Top-right view toggles (wrap on narrow screens so they stay on-screen) */}
       <div className="absolute right-3 top-3 flex max-w-[70vw] flex-wrap items-center justify-end gap-2 md:max-w-none md:flex-nowrap">
         <ToggleButton
-          active={collisions}
-          onClick={toggleCollisions}
-          icon="box"
-          label={t('toggle.collisions')}
-          title={t('toggle.collisions.title')}
-        />
-        <ToggleButton
           active={workLight}
-          onClick={onToggleWorkLight}
+          onClick={toggleWorkLight}
           icon="lightbulb"
           label={t('toggle.workLight')}
           title={t('toggle.workLight.title')}
@@ -156,8 +145,6 @@ export function SceneViewport() {
   // Bloom defaults OFF: it flickers on some Windows/Chrome GPU+driver combos.
   // The scene glows via additive materials on its own; users can enable it.
   const [bloom, setBloom] = useState(false);
-  // Work light ("god mode"): bright neutral lighting to build the scene.
-  const [workLight, setWorkLight] = useState(false);
 
   // Crosshair cursor while a library item is armed for placement.
   useEffect(() => {
@@ -194,7 +181,7 @@ export function SceneViewport() {
       >
         <color attach="background" args={['#04050a']} />
         <Suspense fallback={null}>
-          <StageScene workLight={workLight} />
+          <StageScene />
         </Suspense>
         <OrbitControls
           makeDefault
@@ -222,12 +209,7 @@ export function SceneViewport() {
           </EffectComposer>
         )}
       </Canvas>
-      <ViewportOverlay
-        bloom={bloom}
-        onToggleBloom={() => setBloom((b) => !b)}
-        workLight={workLight}
-        onToggleWorkLight={() => setWorkLight((w) => !w)}
-      />
+      <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
     </div>
   );
 }

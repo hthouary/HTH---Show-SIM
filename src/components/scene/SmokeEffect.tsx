@@ -5,7 +5,7 @@ import { useShowStateRef } from './ShowStateContext';
 import { burstFor, disposeParticles, makeParticles } from './particles';
 import { getSmokeTexture } from './textures';
 import { ignoreRaycast } from './interaction';
-import { EmitterBody } from './props';
+import { SmokeMachineBody } from './props';
 
 const COUNT = 120;
 const TAU = Math.PI * 2;
@@ -67,7 +67,7 @@ export function SmokeEffect({ object }: { object: SceneObject }) {
 
   return (
     <>
-      <EmitterBody color={object.color} />
+      <SmokeMachineBody color={object.color} />
       <points geometry={sys.geometry} material={sys.material} frustumCulled={false} raycast={ignoreRaycast} />
     </>
   );

@@ -7,6 +7,33 @@ import { LoadProjectModal } from './LoadProjectModal';
 import { APP_VERSION } from '../../version';
 import { useT } from '../../i18n/useT';
 
+/** Build / Show mode switch — the app's primary workflow toggle. */
+function ModeSwitch() {
+  const appMode = useShowStore((s) => s.appMode);
+  const setAppMode = useShowStore((s) => s.setAppMode);
+  const t = useT();
+  const modes = [
+    { id: 'build' as const, icon: 'box' as const, label: t('mode.build') },
+    { id: 'show' as const, icon: 'play' as const, label: t('mode.show') },
+  ];
+  return (
+    <div className="flex items-center rounded-lg border border-ink-700 bg-ink-850 p-0.5" title={t('mode.title')}>
+      {modes.map((m) => (
+        <button
+          key={m.id}
+          onClick={() => setAppMode(m.id)}
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            appMode === m.id ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Icon name={m.icon} size={13} filled={m.id === 'show'} />
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** EN / FR language switch. */
 function LanguageSwitch() {
   const language = useShowStore((s) => s.language);
@@ -44,6 +71,7 @@ function TransportClock() {
 
 export function TopBar() {
   const project = useShowStore((s) => s.project);
+  const appMode = useShowStore((s) => s.appMode);
   const isPlaying = useShowStore((s) => s.isPlaying);
   const togglePlay = useShowStore((s) => s.togglePlay);
   const stop = useShowStore((s) => s.stop);
@@ -128,23 +156,32 @@ export function TopBar() {
         </button>
       </div>
 
-      {/* Transport — centered */}
-      <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3">
-        <button className="btn-ghost h-9 w-9 px-0" onClick={stop} title={t('topbar.stop.title')}>
-          <Icon name="skip-back" size={16} />
-        </button>
-        <button
-          className="grid h-10 w-10 place-items-center rounded-full bg-accent-cyan text-ink-950 shadow-glow transition-transform hover:scale-105 active:scale-95"
-          onClick={togglePlay}
-          title={isPlaying ? t('topbar.pause.title') : t('topbar.play.title')}
-        >
-          <Icon name={isPlaying ? 'pause' : 'play'} size={18} filled />
-        </button>
-        <TransportClock />
-      </div>
+      {/* Transport — centered (Show mode only; Build mode has no timeline) */}
+      {appMode === 'show' ? (
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3">
+          <button className="btn-ghost h-9 w-9 px-0" onClick={stop} title={t('topbar.stop.title')}>
+            <Icon name="skip-back" size={16} />
+          </button>
+          <button
+            className="grid h-10 w-10 place-items-center rounded-full bg-accent-cyan text-ink-950 shadow-glow transition-transform hover:scale-105 active:scale-95"
+            onClick={togglePlay}
+            title={isPlaying ? t('topbar.pause.title') : t('topbar.play.title')}
+          >
+            <Icon name={isPlaying ? 'pause' : 'play'} size={18} filled />
+          </button>
+          <TransportClock />
+        </div>
+      ) : (
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+          <Icon name="box" size={14} className="text-accent-cyan" />
+          {t('build.banner')}
+        </div>
+      )}
 
-      {/* Project name — right aligned */}
+      {/* Mode switch + project name — right aligned */}
       <div className="ml-auto flex items-center gap-2">
+        <ModeSwitch />
+        <div className="h-6 w-px bg-ink-700" />
         <LanguageSwitch />
         <span className="text-[10px] uppercase tracking-widest text-slate-600">{t('topbar.project')}</span>
         {editingName ? (

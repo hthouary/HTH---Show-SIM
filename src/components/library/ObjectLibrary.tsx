@@ -7,6 +7,8 @@ import { useT } from '../../i18n/useT';
 export const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
   stage_platform: 'box',
   truss: 'truss',
+  truss_tower: 'truss',
+  truss_arch: 'truss',
   speaker: 'speaker',
   led_screen: 'monitor',
   dj_booth: 'box',

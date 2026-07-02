@@ -89,16 +89,35 @@ clip duration.
 
 ---
 
-## Features (V1)
+## Two modes: Build & Show
+
+A switch in the top bar flips between the two ways you work on a show:
+
+- **Build mode** — a construction sandbox (the timeline is hidden, work light
+  comes on). A bottom **build toolbar** gives you a **grid** (show/hide + cell
+  size), **grid snapping**, **magnetic snapping** (objects click flush against
+  each other's faces and auto-align their centres, like magnets) and
+  **collisions** — each independently toggleable, in the spirit of Planet
+  Coaster's building tools. Assemble a clean, believable rig without touching
+  the timeline.
+- **Show mode** — the timeline / playback programming from V1: tracks, clips,
+  audio, transport.
+
+## Features
 
 - **3D viewport** — orbit / zoom / pan, grid floor, fog, ACES tone-mapping and
-  bloom; click to select, pulsing ground-ring gizmo on the selection.
-- **Object library** — 16 object types across Stage / Lights / FX, one click to
-  add to the scene.
-- **Volumetric lights** — moving heads, beams, strobes, blinders with a real
-  SpotLight + additive beam cone, color/intensity/beam-angle/target, sweep
-  animation and a global strobe flash.
-- **Lasers** — animated additive beam fans, per-fixture color.
+  bloom; click to select, transform gizmo on the selection.
+- **Object library** — 18 object types across Stage / Lights / FX, one click to
+  add to the scene, including **vertical structures** (truss towers, arches).
+- **Realistic gear** — fixtures are modelled to read like real touring hardware:
+  moving heads with a base, U-yoke and a tilting lit head; beam fixtures; LED
+  strobe panels; 2×2 blinder lamp arrays; a laser projector with heat-sink fins
+  and an aperture window; box-truss lattices (horizontal beams, vertical towers
+  and goalpost arches); flown PA line-arrays; and dedicated FX machine bodies
+  (hazer, flame canister, cryo bottle, confetti blower).
+- **Volumetric lights** — a real SpotLight + additive beam cone,
+  color/intensity/beam-angle/target, movement animation and a global strobe flash.
+- **Lasers** — animated additive beam fans / drawn chains, per-fixture color.
 - **FX** — GPU-light particle smoke, flame, CO2 and confetti bursts.
 - **LED screen** — custom shader wall that changes color, pulses and reacts to
   the music level.

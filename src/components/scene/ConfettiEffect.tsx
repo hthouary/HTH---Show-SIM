@@ -5,7 +5,7 @@ import type { SceneObject } from '../../types/show';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor } from './particles';
 import { ignoreRaycast } from './interaction';
-import { EmitterBody } from './props';
+import { ConfettiCannonBody } from './props';
 
 const COUNT = 140;
 const TAU = Math.PI * 2;
@@ -84,7 +84,7 @@ export function ConfettiEffect({ object }: { object: SceneObject }) {
 
   return (
     <>
-      <EmitterBody color={object.color} />
+      <ConfettiCannonBody color={object.color} />
       <instancedMesh
         ref={ref}
         args={[undefined, undefined, COUNT]}

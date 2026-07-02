@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import type { Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
+import type { AppMode, Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
 import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
-import { resolvePlacement } from '../utils/collision';
+import { resolvePlacement, type PlacementSettings } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
 import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
 import { translate, type Lang } from '../i18n/translations';
@@ -38,10 +38,22 @@ interface ShowState {
 
   // ---- Transient UI ---------------------------------------------------
   toasts: Toast[];
+  /** Current working mode: build (construction sandbox) or show (timeline). */
+  appMode: AppMode;
   /** When set, the next click in the scene places an object of this type. */
   placementType: SceneObjectType | null;
   /** Whether floor / object collisions are enforced while placing / moving. */
   collisions: boolean;
+  /** Show the build grid on the floor. */
+  showGrid: boolean;
+  /** Snap placed / moved objects to the build grid. */
+  gridSnap: boolean;
+  /** Build grid cell size (world units). */
+  gridSize: number;
+  /** Magnetically snap objects flush against each other while placing / moving. */
+  magnet: boolean;
+  /** Bright neutral "work light" so the whole scene is visible while building. */
+  workLight: boolean;
   /** Active transform gizmo mode. */
   gizmoMode: 'translate' | 'rotate';
   /** Render quality: 'high' enables reflections / shadows, 'low' keeps it light. */
@@ -72,6 +84,14 @@ interface ShowState {
   deleteObject: (id: string) => void;
   duplicateObject: (id: string) => void;
   selectObject: (id: string | null) => void;
+
+  // ---- Mode / build tools ---------------------------------------------
+  setAppMode: (mode: AppMode) => void;
+  toggleGrid: () => void;
+  toggleGridSnap: () => void;
+  setGridSize: (size: number) => void;
+  toggleMagnet: () => void;
+  toggleWorkLight: () => void;
 
   // ---- Placement / editor ---------------------------------------------
   setPlacementType: (type: SceneObjectType | null) => void;
@@ -144,8 +164,75 @@ function initialLanguage(): Lang {
   return typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
 }
 
+/** Persisted construction preferences (grid / snapping / mode / work light). */
+interface BuildPrefs {
+  appMode: AppMode;
+  collisions: boolean;
+  showGrid: boolean;
+  gridSnap: boolean;
+  gridSize: number;
+  magnet: boolean;
+  workLight: boolean;
+}
+
+const BUILD_DEFAULTS: BuildPrefs = {
+  appMode: 'show',
+  collisions: false,
+  showGrid: true,
+  gridSnap: false,
+  gridSize: 1,
+  magnet: true,
+  workLight: false,
+};
+
+const BUILD_KEY = 'showforge.build';
+
+function initialBuildPrefs(): BuildPrefs {
+  try {
+    const raw = localStorage.getItem(BUILD_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<BuildPrefs>;
+      return { ...BUILD_DEFAULTS, ...parsed };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { ...BUILD_DEFAULTS };
+}
+
+function saveBuildPrefs(p: BuildPrefs) {
+  try {
+    localStorage.setItem(BUILD_KEY, JSON.stringify(p));
+  } catch {
+    /* ignore */
+  }
+}
+
 export const useShowStore = create<ShowState>((set, get) => {
   const startProject = initialProject();
+  const buildPrefs = initialBuildPrefs();
+
+  // Snapshot the current build preferences to localStorage.
+  const persistBuild = () => {
+    const s = get();
+    saveBuildPrefs({
+      appMode: s.appMode,
+      collisions: s.collisions,
+      showGrid: s.showGrid,
+      gridSnap: s.gridSnap,
+      gridSize: s.gridSize,
+      magnet: s.magnet,
+      workLight: s.workLight,
+    });
+  };
+
+  // Build the placement pipeline settings from the current state.
+  const placement = (s: ShowState): PlacementSettings => ({
+    collisions: s.collisions,
+    gridSnap: s.gridSnap,
+    gridSize: s.gridSize,
+    magnet: s.magnet,
+  });
 
   // Undo/redo history. `record(label)` snapshots the current project *before* a
   // mutation. Consecutive mutations with the same label within a short window
@@ -180,8 +267,14 @@ export const useShowStore = create<ShowState>((set, get) => {
     duration: startProject.settings.duration,
     hasAudio: false,
     toasts: [],
+    appMode: buildPrefs.appMode,
     placementType: null,
-    collisions: false,
+    collisions: buildPrefs.collisions,
+    showGrid: buildPrefs.showGrid,
+    gridSnap: buildPrefs.gridSnap,
+    gridSize: buildPrefs.gridSize,
+    magnet: buildPrefs.magnet,
+    workLight: buildPrefs.workLight,
     gizmoMode: 'translate',
     quality: 'high',
     language: initialLanguage(),
@@ -253,7 +346,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       record('add');
       const s = get();
       const label = tr(`obj.${type}.label`);
-      const pos = resolvePlacement(s.project.objects, null, type, 1, position, s.collisions);
+      const pos = resolvePlacement(s.project.objects, null, type, 1, position, placement(s));
       const obj = createSceneObject(type, { position: pos, name: label });
       set((st) => ({
         project: { ...st.project, objects: [...st.project.objects, obj], updatedAt: Date.now() },
@@ -280,7 +373,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       set((s) => {
         const obj = s.project.objects.find((o) => o.id === id);
         if (!obj) return {};
-        const pos = resolvePlacement(s.project.objects, id, obj.type, obj.scale, position, s.collisions);
+        const pos = resolvePlacement(s.project.objects, id, obj.type, obj.scale, position, placement(s));
         // Move the aim target along with the fixture so its beam keeps its angle.
         const delta: Vec3 = [pos[0] - obj.position[0], pos[1] - obj.position[1], pos[2] - obj.position[2]];
         const target: Vec3 = [obj.target[0] + delta[0], obj.target[1] + delta[1], obj.target[2] + delta[2]];
@@ -328,6 +421,42 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     selectObject: (id) => set({ selectedObjectId: id, selectedEventId: null }),
 
+    // -------------------------------------------------------- Mode / build
+    setAppMode: (mode) => {
+      const prev = get().appMode;
+      if (prev === mode) return;
+      // Leaving Show pauses playback; entering Build lights the scene up so it
+      // is easy to see, and clears any timeline selection. Show mode restores
+      // the moody stage lighting.
+      if (mode === 'build') {
+        get().pause();
+        set({ appMode: mode, workLight: true, selectedEventId: null });
+      } else {
+        set({ appMode: mode, workLight: false, placementType: null });
+      }
+      persistBuild();
+    },
+    toggleGrid: () => {
+      set((s) => ({ showGrid: !s.showGrid }));
+      persistBuild();
+    },
+    toggleGridSnap: () => {
+      set((s) => ({ gridSnap: !s.gridSnap }));
+      persistBuild();
+    },
+    setGridSize: (size) => {
+      set({ gridSize: Math.max(0.25, size) });
+      persistBuild();
+    },
+    toggleMagnet: () => {
+      set((s) => ({ magnet: !s.magnet }));
+      persistBuild();
+    },
+    toggleWorkLight: () => {
+      set((s) => ({ workLight: !s.workLight }));
+      persistBuild();
+    },
+
     // ------------------------------------------------------------ Placement
     setPlacementType: (type) =>
       set((s) => ({ placementType: s.placementType === type ? null : type })),
@@ -335,6 +464,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     toggleCollisions: () => {
       const next = !get().collisions;
       set({ collisions: next });
+      persistBuild();
       get().pushToast('info', tr('toast.collisions', { state: tr(next ? 'toast.on' : 'toast.off') }));
     },
 

@@ -132,13 +132,30 @@ export function LaserFixture({ object }: { object: SceneObject }) {
 
   return (
     <group>
-      {/* Projector head */}
+      {/* Projector housing */}
       <mesh>
-        <boxGeometry args={[0.3, 0.2, 0.4]} />
-        <meshStandardMaterial color="#0c0e14" metalness={0.7} roughness={0.3} />
+        <boxGeometry args={[0.36, 0.26, 0.46]} />
+        <meshStandardMaterial color="#0c0e14" metalness={0.72} roughness={0.32} />
       </mesh>
-      <mesh position={[0, 0, 0.22]} material={dotMat} raycast={ignoreRaycast}>
-        <circleGeometry args={[0.05, 16]} />
+      {/* Heat-sink fins on top */}
+      {[-0.12, -0.04, 0.04, 0.12].map((x) => (
+        <mesh key={x} position={[x, 0.16, 0]}>
+          <boxGeometry args={[0.03, 0.06, 0.4]} />
+          <meshStandardMaterial color="#15181f" metalness={0.7} roughness={0.4} />
+        </mesh>
+      ))}
+      {/* Mounting bracket + clamp */}
+      <mesh position={[0, -0.2, 0]}>
+        <boxGeometry args={[0.3, 0.04, 0.3]} />
+        <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.45} />
+      </mesh>
+      {/* Front aperture plate + emissive aperture window */}
+      <mesh position={[0, 0, 0.235]}>
+        <boxGeometry args={[0.38, 0.28, 0.03]} />
+        <meshStandardMaterial color="#05060a" metalness={0.7} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 0, 0.255]} material={dotMat} raycast={ignoreRaycast}>
+        <circleGeometry args={[0.055, 18]} />
       </mesh>
 
       {/* Preset fan — aimed at the target (not selectable). */}

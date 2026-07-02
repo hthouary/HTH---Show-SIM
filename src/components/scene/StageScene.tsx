@@ -10,13 +10,16 @@ import { SceneObject } from './SceneObject';
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
-export function StageScene({ workLight = false }: { workLight?: boolean }) {
+export function StageScene() {
   const objects = useShowStore((s) => s.project.objects);
   const events = useShowStore((s) => s.project.events);
   const fog = useShowStore((s) => s.project.settings.fog);
   const placementType = useShowStore((s) => s.placementType);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
   const high = useShowStore((s) => s.quality === 'high');
+  const workLight = useShowStore((s) => s.workLight);
+  const showGrid = useShowStore((s) => s.showGrid);
+  const gridSize = useShowStore((s) => s.gridSize);
 
   // A left-click on the floor only places (in placement mode) — it never
   // deselects, so orbiting the camera keeps the current selection.
@@ -114,20 +117,22 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
           opacity={0.5}
         />
       )}
-      <Grid
-        position={[0, 0.001, 0]}
-        args={[80, 80]}
-        cellSize={1}
-        cellThickness={0.6}
-        cellColor="#16202e"
-        sectionSize={5}
-        sectionThickness={1.1}
-        sectionColor="#1f6f86"
-        fadeDistance={55}
-        fadeStrength={1.4}
-        infiniteGrid
-        followCamera={false}
-      />
+      {showGrid && (
+        <Grid
+          position={[0, 0.001, 0]}
+          args={[80, 80]}
+          cellSize={gridSize}
+          cellThickness={0.6}
+          cellColor="#16202e"
+          sectionSize={gridSize * 5}
+          sectionThickness={1.1}
+          sectionColor="#1f6f86"
+          fadeDistance={55}
+          fadeStrength={1.4}
+          infiniteGrid
+          followCamera={false}
+        />
+      )}
 
       {/* Backdrop wall behind the stage */}
       <mesh position={[0, 8, -9]}>

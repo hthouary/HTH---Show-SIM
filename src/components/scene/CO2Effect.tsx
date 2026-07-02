@@ -5,7 +5,7 @@ import { useShowStateRef } from './ShowStateContext';
 import { burstFor, disposeParticles, makeParticles } from './particles';
 import { getSmokeTexture } from './textures';
 import { ignoreRaycast } from './interaction';
-import { EmitterBody } from './props';
+import { Co2JetBody } from './props';
 
 const COUNT = 80;
 const TAU = Math.PI * 2;
@@ -54,7 +54,7 @@ export function CO2Effect({ object }: { object: SceneObject }) {
 
   return (
     <>
-      <EmitterBody color={object.color} />
+      <Co2JetBody color={object.color} />
       <points geometry={sys.geometry} material={sys.material} frustumCulled={false} raycast={ignoreRaycast} />
     </>
   );

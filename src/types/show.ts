@@ -10,6 +10,8 @@ export type SceneObjectType =
   // Stage
   | 'stage_platform'
   | 'truss'
+  | 'truss_tower'
+  | 'truss_arch'
   | 'speaker'
   | 'led_screen'
   | 'dj_booth'
@@ -28,6 +30,12 @@ export type SceneObjectType =
   | 'confetti_cannon';
 
 export type LibraryCategory = 'stage' | 'lights' | 'fx';
+
+/**
+ * App working mode. `build` is a construction sandbox (grid, magnetic snapping,
+ * collisions — no timeline); `show` is the timeline / playback programming mode.
+ */
+export type AppMode = 'build' | 'show';
 
 /** Broad family an event type belongs to (drives its colour + grouping). */
 export type EventCategory = 'lights' | 'lasers' | 'fx' | 'led' | 'global';

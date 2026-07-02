@@ -35,6 +35,24 @@ export const CATALOG: CatalogEntry[] = [
     defaults: { color: '#9aa3b2', scale: 1, position: [0, 6, -1], intensity: 0 },
   },
   {
+    type: 'truss_tower',
+    label: 'Truss Tower',
+    category: 'stage',
+    hint: 'Vertical column',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#9aa3b2', scale: 1, position: [-6, 2.5, -2], intensity: 0 },
+  },
+  {
+    type: 'truss_arch',
+    label: 'Truss Arch',
+    category: 'stage',
+    hint: 'Goalpost gate',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#9aa3b2', scale: 1, position: [0, 2.6, -5], intensity: 0 },
+  },
+  {
     type: 'speaker',
     label: 'Speaker',
     category: 'stage',
@@ -171,7 +189,7 @@ export const CATALOG: CatalogEntry[] = [
     hint: 'Haze cloud',
     track: 'fx',
     emitsBeam: false,
-    defaults: { color: '#dfe7f2', intensity: 1, position: [-6, 0.3, -2] },
+    defaults: { color: '#dfe7f2', intensity: 1, position: [-6, 0.22, -2] },
   },
   {
     type: 'flame_jet',
@@ -180,7 +198,7 @@ export const CATALOG: CatalogEntry[] = [
     hint: 'Fire burst',
     track: 'fx',
     emitsBeam: false,
-    defaults: { color: '#ff7b1c', intensity: 1, position: [-3, 0.4, -3] },
+    defaults: { color: '#ff7b1c', intensity: 1, position: [-3, 0.34, -3] },
   },
   {
     type: 'co2_jet',
@@ -189,7 +207,7 @@ export const CATALOG: CatalogEntry[] = [
     hint: 'Cryo blast',
     track: 'fx',
     emitsBeam: false,
-    defaults: { color: '#eaf2ff', intensity: 1, position: [3, 0.4, -3] },
+    defaults: { color: '#eaf2ff', intensity: 1, position: [3, 0.38, -3] },
   },
   {
     type: 'confetti_cannon',
@@ -198,7 +216,7 @@ export const CATALOG: CatalogEntry[] = [
     hint: 'Paper burst',
     track: 'fx',
     emitsBeam: false,
-    defaults: { color: '#e64bd6', intensity: 1, position: [5, 0.6, -2] },
+    defaults: { color: '#e64bd6', intensity: 1, position: [5, 0.42, -2] },
   },
 ];
 
