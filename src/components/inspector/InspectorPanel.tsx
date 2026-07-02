@@ -86,6 +86,7 @@ function EmptyState() {
 export function InspectorPanel() {
   const object = useShowStore(selectSelectedObject);
   const event = useShowStore(selectSelectedEvent);
+  const selectObject = useShowStore((s) => s.selectObject);
   const t = useT();
 
   return (
@@ -93,6 +94,15 @@ export function InspectorPanel() {
       <div className="panel-header border-b">
         <Icon name="target" size={14} />
         {t('inspector.title')}
+        {(object || event) && (
+          <button
+            className="ml-auto grid h-6 w-6 place-items-center rounded text-slate-500 hover:bg-ink-700 hover:text-slate-200"
+            title={t('inspector.deselect')}
+            onClick={() => selectObject(null)}
+          >
+            <Icon name="close" size={14} />
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {object ? <ObjectInspector object={object} /> : event ? <EventEditor event={event} /> : <EmptyState />}

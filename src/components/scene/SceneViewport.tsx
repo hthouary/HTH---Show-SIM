@@ -180,14 +180,17 @@ export function SceneViewport() {
     <div
       className="relative h-full w-full bg-gradient-to-b from-[#070912] to-[#03040a]"
       style={placementType ? { cursor: 'crosshair' } : undefined}
+      // Right-click anywhere in the viewport clears the selection (a left-click
+      // on empty space keeps it, so orbiting the camera never deselects).
+      onContextMenu={(e) => {
+        e.preventDefault();
+        selectObject(null);
+      }}
     >
       <Canvas
         dpr={[1, 2]}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
         camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 300 }}
-        onPointerMissed={() => {
-          if (!placementType) selectObject(null);
-        }}
       >
         <color attach="background" args={['#04050a']} />
         <Suspense fallback={null}>

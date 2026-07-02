@@ -16,17 +16,15 @@ export function StageScene({ workLight = false }: { workLight?: boolean }) {
   const fog = useShowStore((s) => s.project.settings.fog);
   const placementType = useShowStore((s) => s.placementType);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
-  const selectObject = useShowStore((s) => s.selectObject);
   const high = useShowStore((s) => s.quality === 'high');
 
+  // A left-click on the floor only places (in placement mode) — it never
+  // deselects, so orbiting the camera keeps the current selection.
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
+    if (!placementType) return;
     e.stopPropagation();
-    if (placementType) {
-      const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
-      addObjectAt(placementType, [round(e.point.x), defY, round(e.point.z)]);
-    } else {
-      selectObject(null);
-    }
+    const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
+    addObjectAt(placementType, [round(e.point.x), defY, round(e.point.z)]);
   };
 
   const showRef = useRef(evaluateEvents(events, 0)) as ShowStateRef;

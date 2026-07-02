@@ -142,6 +142,7 @@ export function TimelinePanel() {
   const duration = useShowStore((s) => s.duration);
   const seek = useShowStore((s) => s.seek);
   const addLane = useShowStore((s) => s.addLane);
+  const selectEvent = useShowStore((s) => s.selectEvent);
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -163,7 +164,13 @@ export function TimelinePanel() {
   };
 
   return (
-    <section className="flex h-[248px] shrink-0 flex-col border-t border-ink-700/70 bg-ink-900">
+    <section
+      className="flex h-[248px] shrink-0 flex-col border-t border-ink-700/70 bg-ink-900"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        selectEvent(null);
+      }}
+    >
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center gap-3 overflow-x-auto border-b border-ink-700/70 px-3">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">

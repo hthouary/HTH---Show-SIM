@@ -61,6 +61,7 @@ const en: Dict = {
   'outliner.hide': 'Hide',
 
   'inspector.title': 'Inspector',
+  'inspector.deselect': 'Deselect',
   'inspector.emptyTitle': 'Select an object to edit its properties',
   'inspector.emptyHint': 'Click an object in the 3D scene, or a clip on the timeline.',
   'field.position': 'Position',
@@ -291,6 +292,7 @@ const fr: Dict = {
   'outliner.hide': 'Masquer',
 
   'inspector.title': 'Inspecteur',
+  'inspector.deselect': 'Désélectionner',
   'inspector.emptyTitle': 'Sélectionne un objet pour modifier ses propriétés',
   'inspector.emptyHint': 'Clique un objet dans la scène 3D, ou un bloc sur la timeline.',
   'field.position': 'Position',

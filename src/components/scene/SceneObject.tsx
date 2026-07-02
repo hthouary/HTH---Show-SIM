@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
 import { type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject as SceneObjectModel } from '../../types/show';
-import { useShowStore } from '../../store/useShowStore';
+import { useShowStore, isHighlighted } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { LightFixture } from './LightFixture';
 import { LaserFixture } from './LaserFixture';
@@ -13,6 +13,7 @@ import { FlameEffect } from './FlameEffect';
 import { CO2Effect } from './CO2Effect';
 import { ConfettiEffect } from './ConfettiEffect';
 import { CrowdBlock, DjBooth, Speaker, StagePlatform, Truss } from './props';
+import { ignoreRaycast } from './interaction';
 
 function renderBody(object: SceneObjectModel) {
   switch (object.type) {
@@ -51,6 +52,17 @@ function renderBody(object: SceneObjectModel) {
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
+/** Configure the white selection outline so it reads clearly (shows through). */
+function tuneHelper(h: THREE.Box3Helper | null) {
+  if (!h) return;
+  const m = h.material as THREE.LineBasicMaterial;
+  m.toneMapped = false;
+  m.transparent = true;
+  m.opacity = 0.85;
+  m.depthTest = false;
+  h.renderOrder = 999;
+}
+
 export function SceneObject({ object }: { object: SceneObjectModel }) {
   const selectObject = useShowStore((s) => s.selectObject);
   const moveObject = useShowStore((s) => s.moveObject);
@@ -59,8 +71,40 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
   const placementType = useShowStore((s) => s.placementType);
   const gizmoMode = useShowStore((s) => s.gizmoMode);
   const selected = useShowStore((s) => s.selectedObjectId === object.id);
+  const highlighted = useShowStore((s) => isHighlighted(s, object.id));
 
   const [node, setNode] = useState<THREE.Group | null>(null);
+  const [box, setBox] = useState<THREE.Box3 | null>(null);
+
+  // A white outline box around the object's *body* (excluding the long beams /
+  // laser fans / particle fields), recomputed when it becomes highlighted or moves.
+  useLayoutEffect(() => {
+    if (!highlighted || !node || object.hidden) {
+      setBox(null);
+      return;
+    }
+    node.updateWorldMatrix(true, true);
+    const acc = new THREE.Box3();
+    const tmp = new THREE.Box3();
+    const size = new THREE.Vector3();
+    node.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !m.geometry) return;
+      // Beams / laser fans / particles / flares are marked non-raycastable — they
+      // are light, not body, so exclude them from the selection outline.
+      if (m.raycast === ignoreRaycast) return;
+      tmp.setFromObject(m);
+      if (tmp.isEmpty()) return;
+      tmp.getSize(size);
+      if (Math.max(size.x, size.y, size.z) <= 40) acc.union(tmp);
+    });
+    if (acc.isEmpty()) {
+      setBox(null);
+      return;
+    }
+    acc.expandByScalar(0.12);
+    setBox(acc);
+  }, [highlighted, node, object.hidden, object.type, object.position, object.rotation, object.scale]);
 
   if (object.hidden) return null;
 
@@ -97,6 +141,8 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
       >
         {renderBody(object)}
       </group>
+
+      {highlighted && box && <box3Helper args={[box, 0xffffff]} ref={tuneHelper} />}
 
       {showGizmo && node && (
         <TransformControls

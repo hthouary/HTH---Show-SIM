@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
-import { createId, createSceneObject, defaultEventParams } from '../data/catalog';
+import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { resolvePlacement } from '../utils/collision';
@@ -653,3 +653,26 @@ export const selectSelectedObject = (s: ShowState): SceneObject | null =>
 
 export const selectSelectedEvent = (s: ShowState): ShowEvent | null =>
   s.project.events.find((e) => e.id === s.selectedEventId) ?? null;
+
+/**
+ * Whether a given scene object should be highlighted (white outline): it is the
+ * selected object, or it is targeted by the selected event (an event with no
+ * explicit targets highlights every object its type can apply to).
+ */
+export function isHighlighted(s: ShowState, id: string): boolean {
+  if (s.selectedObjectId) return s.selectedObjectId === id;
+  if (s.selectedEventId) {
+    const ev = s.project.events.find((e) => e.id === s.selectedEventId);
+    if (!ev) return false;
+    if (ev.targets.length) return ev.targets.includes(id);
+    const obj = s.project.objects.find((o) => o.id === id);
+    if (!obj) return false;
+    const cat = eventCategory(ev.type);
+    if (cat === 'lights') return isLightFixture(obj.type);
+    if (cat === 'lasers') return obj.type === 'laser';
+    if (cat === 'fx') return isFxEmitter(obj.type);
+    if (cat === 'led') return obj.type === 'led_screen';
+    return false;
+  }
+  return false;
+}
