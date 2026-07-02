@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { lightForObject } from '../../utils/events';
-import { movementRotation, movementSeed } from '../../utils/movement';
+import { customMovement, movementRotation, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { makeBeamMaterial } from './beam';
@@ -106,7 +106,11 @@ export function LightFixture({ object }: Props) {
     // playback, scrubs correctly and freezes automatically when paused. The
     // head pivots from the lens like a real moving head.
     if (swingRef.current) {
-      const mv = movementRotation(light.move.pattern, light.move.speed, state.time, movementSeed(object.position));
+      const m = light.move;
+      const mv =
+        m.pattern === 'custom'
+          ? customMovement(m.path, m.tilt ?? 90, m.cycle ?? 2, m.speed, m.amp ?? 50, m.repeat ?? 'loop', state.time, m.since ?? 0)
+          : movementRotation(m.pattern, m.speed, state.time, movementSeed(object.position));
       swingRef.current.rotation.z = mv.z;
       swingRef.current.rotation.x = mv.x;
     }

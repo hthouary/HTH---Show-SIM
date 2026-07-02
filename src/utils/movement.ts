@@ -69,6 +69,53 @@ export function movementSeed(position: [number, number, number]): number {
   return position[0] * 1.3 + position[2] * 0.7;
 }
 
+const INCL_MAX = 0.9; // base tilt at inclination 0 / 180 (radians)
+const CUSTOM_AMP = 0.95; // beam swing at amplitude 100 (radians)
+
+/**
+ * Custom moving-head movement: the beam traces a hand-drawn path. The path is a
+ * list of normalized [x,y] points (0..1) in the draw box; its centre is the
+ * beam's rest aim. `tilt` (0 down · 90 forward · 180 up) sets the base tilt the
+ * movement happens around; `cycle` is the seconds per pass at speed 50; `speed`
+ * scales that; `repeat` chooses restart ('loop') or back-and-forth ('pingpong').
+ */
+export function customMovement(
+  path: number[][] | undefined,
+  tilt: number,
+  cycle: number,
+  speed: number,
+  amp: number,
+  repeat: 'loop' | 'pingpong',
+  now: number,
+  since: number,
+): { x: number; z: number } {
+  const baseX = ((90 - tilt) / 90) * INCL_MAX;
+  if (!path || path.length < 2 || speed <= 0) return { x: baseX, z: 0 };
+
+  const passTime = Math.max(0.05, cycle * (50 / Math.max(1, speed)));
+  const local = Math.max(0, now - since);
+  let p: number;
+  if (repeat === 'pingpong') {
+    const q = (local / passTime) % 2;
+    p = q < 1 ? q : 2 - q;
+  } else {
+    p = (local / passTime) % 1;
+  }
+
+  const n = path.length;
+  const f = p * (n - 1);
+  const i0 = Math.floor(f);
+  const i1 = Math.min(n - 1, i0 + 1);
+  const frac = f - i0;
+  const px = path[i0][0] + (path[i1][0] - path[i0][0]) * frac;
+  const py = path[i0][1] + (path[i1][1] - path[i0][1]) * frac;
+
+  const ampF = (Math.min(100, Math.max(0, amp)) / 100) * CUSTOM_AMP;
+  const dx = (px - 0.5) * 2; // -1..1 → pan
+  const dy = (0.5 - py) * 2; // -1..1 → tilt (up positive; canvas y grows downward)
+  return { x: baseX + dy * ampF, z: dx * ampF };
+}
+
 // --- Laser projectors -------------------------------------------------------
 // A laser is a *fan* of thin beams. The movement preset decides the SHAPE the
 // beams draw in the haze (and how it animates), not just how the whole head

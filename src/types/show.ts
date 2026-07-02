@@ -38,7 +38,7 @@ export type Vec3 = [number, number, number];
  * Simple beam-movement preset for light / laser fixtures. Combined with a
  * 0..100 speed dial to drive a continuous, per-object motion.
  */
-export type MovementPreset = 'fixed' | 'circular' | 'wave' | 'up_down' | 'left_right';
+export type MovementPreset = 'fixed' | 'circular' | 'wave' | 'up_down' | 'left_right' | 'custom';
 
 /** A single object placed in the 3D scene. */
 export interface SceneObject {

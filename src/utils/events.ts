@@ -18,6 +18,18 @@ export type RGB = [number, number, number];
 export interface MoveState {
   pattern: MovementPreset;
   speed: number;
+  /** Custom movement (pattern === 'custom'): drawn path + shaping params. */
+  path?: number[][];
+  /** Inclination 0 (down) .. 90 (forward) .. 180 (up). */
+  tilt?: number;
+  /** Seconds for one traversal of the drawn path (at speed 50). */
+  cycle?: number;
+  /** Movement size, 0..100. */
+  amp?: number;
+  /** How the path repeats when the action outlasts one traversal. */
+  repeat?: 'loop' | 'pingpong';
+  /** Absolute show time the action started (for local phase). */
+  since?: number;
 }
 
 const STILL: MoveState = { pattern: 'fixed', speed: 0 };
@@ -199,10 +211,17 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       case 'light_sweep': {
         // "Movement" event: sets the beam movement pattern + speed for its span.
         if (active) {
-          const move: MoveState = {
-            pattern: str(ev.params, 'pattern', 'wave') as MovementPreset,
-            speed: num(ev.params, 'speed', 40),
-          };
+          const pattern = str(ev.params, 'pattern', 'wave') as MovementPreset;
+          const move: MoveState = { pattern, speed: num(ev.params, 'speed', 40) };
+          if (pattern === 'custom') {
+            const raw = ev.params['path'];
+            move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
+            move.tilt = num(ev.params, 'tilt', 90);
+            move.cycle = num(ev.params, 'cycle', 2);
+            move.amp = num(ev.params, 'amp', 50);
+            move.repeat = ev.params['repeat'] === 'pingpong' ? 'pingpong' : 'loop';
+            move.since = ev.time;
+          }
           for (const tg of targets) ensureOverride(state, tg).move = { ...move };
         }
         break;

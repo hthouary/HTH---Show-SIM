@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useShowStore } from '../../store/useShowStore';
 import {
   EVENT_TYPE_GROUPS,
@@ -7,11 +8,12 @@ import {
   isFxEmitter,
   isLightFixture,
 } from '../../data/catalog';
-import type { EventCategory, SceneObject, ShowEvent } from '../../types/show';
+import type { EventCategory, MovementPreset, SceneObject, ShowEvent } from '../../types/show';
 import { MOVEMENT_PRESETS } from '../../utils/movement';
 import { ColorField, NumberField, SelectField, SliderField } from '../ui/fields';
 import { Icon } from '../ui/Icon';
 import { OBJECT_ICONS } from '../library/ObjectLibrary';
+import { CustomMovementModal } from './CustomMovementModal';
 import { useT } from '../../i18n/useT';
 
 /** Objects a given event type can meaningfully apply to. */
@@ -28,21 +30,45 @@ function eligibleObjects(category: EventCategory, objects: SceneObject[]): Scene
 function ParamFields({ event }: { event: ShowEvent }) {
   const update = useShowStore((s) => s.updateEvent);
   const tr = useT();
+  const [brush, setBrush] = useState(false);
   const setParam = (key: string, value: unknown) => update(event.id, { params: { ...event.params, [key]: value } });
   const num = (k: string, d: number) => (typeof event.params[k] === 'number' ? (event.params[k] as number) : d);
   const col = (k: string, d: string) => (typeof event.params[k] === 'string' ? (event.params[k] as string) : d);
 
-  const movementFields = (defaultPattern: string) => (
-    <>
-      <SelectField
-        label={tr('field.movement')}
-        value={col('pattern', defaultPattern)}
-        onChange={(v) => setParam('pattern', v)}
-        options={MOVEMENT_PRESETS.map((m) => ({ value: m, label: tr(`movement.${m}`) }))}
-      />
-      <SliderField label={tr('field.speed')} value={num('speed', 40)} min={0} max={100} step={1} onChange={(v) => setParam('speed', v)} />
-    </>
-  );
+  const movementFields = (defaultPattern: string, allowCustom: boolean) => {
+    const pattern = col('pattern', defaultPattern);
+    const presets: MovementPreset[] = allowCustom ? [...MOVEMENT_PRESETS, 'custom'] : [...MOVEMENT_PRESETS];
+    const path = Array.isArray(event.params.path) ? (event.params.path as number[][]) : [];
+    const custom = allowCustom && pattern === 'custom';
+    return (
+      <>
+        <SelectField
+          label={tr('field.movement')}
+          value={pattern}
+          onChange={(v) => setParam('pattern', v)}
+          options={presets.map((m) => ({ value: m, label: tr(`movement.${m}`) }))}
+        />
+        {custom ? (
+          <button className="btn flex items-center justify-center gap-2" onClick={() => setBrush(true)}>
+            <Icon name="brush" size={14} /> {tr('custom.draw')}
+            {path.length > 1 && (
+              <svg viewBox="0 0 100 44" className="ml-1 h-6 w-16 rounded bg-ink-950">
+                <polyline
+                  points={path.map((p) => `${p[0] * 100},${p[1] * 44}`).join(' ')}
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth={2}
+                />
+              </svg>
+            )}
+          </button>
+        ) : (
+          <SliderField label={tr('field.speed')} value={num('speed', 40)} min={0} max={100} step={1} onChange={(v) => setParam('speed', v)} />
+        )}
+        {custom && brush && <CustomMovementModal event={event} onClose={() => setBrush(false)} />}
+      </>
+    );
+  };
 
   switch (event.type) {
     case 'light_color':
@@ -53,7 +79,7 @@ function ParamFields({ event }: { event: ShowEvent }) {
       return (
         <div className="flex flex-col gap-3">
           <ColorField label={tr('param.color')} value={col('color', '#39ff14')} onChange={(v) => setParam('color', v)} />
-          {movementFields('circular')}
+          {movementFields('circular', false)}
         </div>
       );
     case 'light_intensity':
@@ -66,7 +92,7 @@ function ParamFields({ event }: { event: ShowEvent }) {
         </div>
       );
     case 'light_sweep':
-      return <div className="flex flex-col gap-3">{movementFields('wave')}</div>;
+      return <div className="flex flex-col gap-3">{movementFields('wave', true)}</div>;
     case 'led_pulse':
       return (
         <div className="flex flex-col gap-3">
