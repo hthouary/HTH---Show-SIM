@@ -113,6 +113,12 @@ export interface ProjectSettings {
   audioName?: string;
   /** Ground fog density toggle for ambiance. */
   fog: boolean;
+  /** Sky time of day, 0–24h (drives the sun position and sky colours). */
+  timeOfDay?: number;
+  /** Natural daylight brightness multiplier (0–2). */
+  dayBrightness?: number;
+  /** Natural night brightness (0–0.5) — how much ambient light remains at night. */
+  nightBrightness?: number;
 }
 
 export interface Project {

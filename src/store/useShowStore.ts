@@ -219,7 +219,7 @@ interface BuildPrefs {
 const BUILD_DEFAULTS: BuildPrefs = {
   appMode: 'show',
   collisions: false,
-  showGrid: true,
+  showGrid: false,
   gridSnap: false,
   gridSize: 1,
   magnet: true,
@@ -1146,7 +1146,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         objects: [],
         lanes: [{ id: createId('lane'), name: `${tr('timeline.lane')} 1` }],
         events: [],
-        settings: { duration: 90, bpm: 128, fog: true },
+        settings: { duration: 90, bpm: 128, fog: true, timeOfDay: 13, dayBrightness: 1, nightBrightness: 0.12 },
       };
       set({
         project,

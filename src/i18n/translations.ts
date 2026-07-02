@@ -242,6 +242,11 @@ const en: Dict = {
   'toggle.quality.title': 'Render quality. Drop to Low if the scene runs slowly (reflections/shadows off).',
   'quality.high': 'High',
   'quality.low': 'Low',
+  'sky.title': 'Sky',
+  'sky.time': 'Time of day',
+  'sky.day': 'Day brightness',
+  'sky.night': 'Night brightness',
+  'sky.fog': 'Ground fog',
   'state.on': 'On',
   'state.off': 'Off',
 
@@ -548,6 +553,11 @@ const fr: Dict = {
   'toggle.quality.title': 'Qualité de rendu. Passe en Faible si la scène rame (reflets/ombres coupés).',
   'quality.high': 'Élevée',
   'quality.low': 'Faible',
+  'sky.title': 'Ciel',
+  'sky.time': 'Heure de la journée',
+  'sky.day': 'Luminosité jour',
+  'sky.night': 'Luminosité nuit',
+  'sky.fog': 'Brouillard au sol',
   'state.on': 'Oui',
   'state.off': 'Non',
 

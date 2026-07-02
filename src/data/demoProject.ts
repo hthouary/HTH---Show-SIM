@@ -129,6 +129,6 @@ export function createDemoProject(): Project {
     objects,
     lanes: laid.lanes,
     events: laid.events,
-    settings: { duration: 90, bpm: 128, fog: true },
+    settings: { duration: 90, bpm: 128, fog: true, timeOfDay: 13, dayBrightness: 1, nightBrightness: 0.12 },
   };
 }

@@ -124,6 +124,9 @@ export function sanitizeProject(p: Project): Project {
       bpm: p.settings?.bpm,
       audioName: p.settings?.audioName,
       fog: p.settings?.fog ?? true,
+      timeOfDay: clampNum(p.settings?.timeOfDay, 13),
+      dayBrightness: clampNum(p.settings?.dayBrightness, 1),
+      nightBrightness: clampNum(p.settings?.nightBrightness, 0.12),
     },
   };
 }

@@ -105,8 +105,13 @@ A switch in the top bar flips between the two ways you work on a show:
 
 ## Features
 
-- **3D viewport** — orbit / zoom / pan, grid floor, fog, ACES tone-mapping and
-  bloom; click to select, transform gizmo on the selection.
+- **3D viewport** — orbit / zoom / pan, a grey concrete ground to build on, ACES
+  tone-mapping and bloom; click to select, transform gizmo on the selection.
+- **Sky & daylight** — a gradient sky with a sun that rises and sets: blue day
+  with neutral daylight, dark-blue night with almost no natural light so the rig
+  pops. A Sky panel controls the **time of day** and the **day / night
+  brightness** (plus ground fog). The build grid is an optional overlay, off by
+  default.
 - **Object library** — 18 object types across Stage / Lights / FX, one click to
   add to the scene, including **vertical structures** (truss towers, arches).
 - **Realistic gear** — fixtures are modelled to read like real touring hardware:
@@ -163,8 +168,9 @@ A switch in the top bar flips between the two ways you work on a show:
 Already shipped: real in-viewport transform gizmos (move/rotate, `W`/`E`),
 undo/redo with a coalesced history, Build/Show modes, magnetic + grid snapping,
 object multi-select with align / distribute / array / mirror, truss rigging,
-per-project audio persistence, and full timeline power-editing (event
-multi-select, group move, copy/paste, horizontal zoom and quick templates).
+per-project audio persistence, full timeline power-editing (event multi-select,
+group move, copy/paste, horizontal zoom and quick templates), and a concrete
+ground with a controllable day/night sky.
 
 **Short term**
 

@@ -39,6 +39,93 @@ function ToggleButton({
   );
 }
 
+/** One labelled slider row inside the sky panel. */
+function SkySlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="mb-2 block">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-slate-400">{label}</span>
+        <span className="font-mono text-[10px] text-slate-300">{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="sf-range mt-1 w-full"
+      />
+    </label>
+  );
+}
+
+/** Sky / daylight controls: time of day and day/night natural brightness. */
+function SkyControls() {
+  const settings = useShowStore((s) => s.project.settings);
+  const setSettings = useShowStore((s) => s.setSettings);
+  const [open, setOpen] = useState(false);
+  const t = useT();
+  const hour = settings.timeOfDay ?? 13;
+  const dayB = settings.dayBrightness ?? 1;
+  const nightB = settings.nightBrightness ?? 0.12;
+  const hh = Math.floor(hour);
+  const mm = Math.round((hour - hh) * 60);
+  const clock = `${hh}:${String(mm).padStart(2, '0')}`;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+          open ? 'border-accent-cyan/40 bg-ink-900/70 text-accent-cyan' : 'border-ink-700/70 bg-ink-900/70 text-slate-400 hover:text-slate-200'
+        }`}
+        title={t('sky.title')}
+      >
+        <Icon name="sun" size={13} /> {t('sky.title')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-xl border border-ink-700 bg-ink-900/95 p-3 shadow-2xl backdrop-blur">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <Icon name="sun" size={13} className="text-accent-cyan" /> {t('sky.title')}
+            </div>
+            <SkySlider label={t('sky.time')} value={hour} min={0} max={24} step={0.25} display={clock} onChange={(v) => setSettings({ timeOfDay: v })} />
+            <SkySlider label={t('sky.day')} value={dayB} min={0} max={2} step={0.05} display={dayB.toFixed(2)} onChange={(v) => setSettings({ dayBrightness: v })} />
+            <SkySlider label={t('sky.night')} value={nightB} min={0} max={0.5} step={0.01} display={nightB.toFixed(2)} onChange={(v) => setSettings({ nightBrightness: v })} />
+            <button
+              onClick={() => setSettings({ fog: !settings.fog })}
+              className={`mt-1 flex w-full items-center justify-between rounded-lg border px-2.5 py-1.5 text-[11px] ${
+                settings.fog ? 'border-accent-cyan/40 text-accent-cyan' : 'border-ink-700 text-slate-400'
+              }`}
+            >
+              <span>{t('sky.fog')}</span>
+              <span>{settings.fog ? t('state.on') : t('state.off')}</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ViewportOverlay({
   bloom,
   onToggleBloom,
@@ -87,6 +174,7 @@ function ViewportOverlay({
 
       {/* Top-right view toggles (wrap on narrow screens so they stay on-screen) */}
       <div className="absolute right-3 top-3 flex max-w-[70vw] flex-wrap items-center justify-end gap-2 md:max-w-none md:flex-nowrap">
+        <SkyControls />
         <ToggleButton
           active={workLight}
           onClick={toggleWorkLight}
@@ -177,9 +265,8 @@ export function SceneViewport() {
       <Canvas
         dpr={[1, 2]}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
-        camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 300 }}
+        camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 1200 }}
       >
-        <color attach="background" args={['#04050a']} />
         <Suspense fallback={null}>
           <StageScene />
         </Suspense>

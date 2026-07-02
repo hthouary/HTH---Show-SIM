@@ -7,6 +7,7 @@ import * as THREE from 'three';
 
 let smokeTex: THREE.Texture | null = null;
 let glowTex: THREE.Texture | null = null;
+let concreteTex: THREE.Texture | null = null;
 
 /** Simple seeded value-noise → fractal brownian motion for wispy smoke. */
 function buildValueNoise(grid: number) {
@@ -72,6 +73,43 @@ export function getSmokeTexture(): THREE.Texture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   smokeTex = tex;
+  return tex;
+}
+
+/** Mottled grey concrete for the ground (tiling canvas texture, cached). */
+export function getConcreteTexture(): THREE.Texture {
+  if (concreteTex) return concreteTex;
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(size, size);
+  const fbm = buildValueNoise(8);
+  const fine = buildValueNoise(16);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const nx = x / size;
+      const ny = y / size;
+      // Broad tonal variation + fine speckle → weathered concrete.
+      const broad = fbm(nx * 4, ny * 4);
+      const speck = fine(nx * 24, ny * 24);
+      let v = 0.54 + (broad - 0.5) * 0.16 + (speck - 0.5) * 0.09;
+      v = Math.max(0.36, Math.min(0.74, v));
+      const idx = (y * size + x) * 4;
+      // Slightly cool grey (a touch of blue).
+      img.data[idx] = Math.floor(v * 246);
+      img.data[idx + 1] = Math.floor(v * 250);
+      img.data[idx + 2] = Math.floor(v * 255);
+      img.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(48, 48);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  concreteTex = tex;
   return tex;
 }
 
