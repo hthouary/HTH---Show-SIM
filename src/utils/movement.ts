@@ -135,6 +135,31 @@ export function customMovement(
   return customRot(path, dir, amp, p);
 }
 
+const CHAIN_DIST = 14; // distance to the projection plane (local units)
+const CHAIN_SX = 9; // half-width of the projected drawing
+const CHAIN_SY = 5; // half-height of the projected drawing
+
+/**
+ * The point (in the laser's local frame, head at origin) that beam at phase `p`
+ * should hit, so its tip traces the drawn path on a projection plane. `dir`
+ * (0..360) aims the plane: 0 down · 90 forward (+Z) · 180 up · 270 behind. The
+ * drawing's centre maps to the plane centre; a beam is then head → this point.
+ */
+export function laserChainPoint(path: number[][] | undefined, dir: number, p: number): [number, number, number] {
+  const pitch = ((dir - 90) * Math.PI) / 180;
+  const ay = Math.sin(pitch);
+  const az = Math.cos(pitch);
+  // Plane centre along the aim; in-plane axes: right = X, up = (0,-az,ay).
+  const cx = 0;
+  const cy = ay * CHAIN_DIST;
+  const cz = az * CHAIN_DIST;
+  if (!path || path.length < 2) return [cx, cy, cz];
+  const [px, py] = samplePath(path, p);
+  const u = (px - 0.5) * 2 * CHAIN_SX;
+  const v = (0.5 - py) * 2 * CHAIN_SY;
+  return [cx + u, cy + v * -az, cz + v * ay];
+}
+
 /** Phase (0..1) along the path for beam `i` of a laser chain at time `local`. */
 export function laserChainPhase(local: number, speed: number, spacing: number, i: number): number {
   const rate = (Math.max(0, speed) / 100) * 1.2; // path traversals per second

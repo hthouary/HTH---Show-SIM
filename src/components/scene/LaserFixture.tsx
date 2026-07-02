@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { laserColorForObject, laserMoveForObject, laserOnForObject } from '../../utils/events';
-import { customRot, laserBeamDir, laserChainPhase, laserFanRot, movementSeed } from '../../utils/movement';
+import { laserBeamDir, laserChainPhase, laserChainPoint, laserFanRot, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { ignoreRaycast } from './interaction';
@@ -11,10 +11,10 @@ import { ignoreRaycast } from './interaction';
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
 const tmpDir = new THREE.Vector3();
+const tmpVec = new THREE.Vector3();
 const dummy = new THREE.Object3D();
 const BEAM_COUNT = 12;
 const MAX_CHAIN = 500; // custom laser chain cap
-const CHAIN_AMP = 70; // how wide the drawn path maps for lasers (0..100)
 
 /**
  * A laser projector. Preset movements shape a fan of thin beams. The 'custom'
@@ -29,7 +29,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
   const coreInst = useRef<THREE.InstancedMesh>(null);
   const glowInst = useRef<THREE.InstancedMesh>(null);
 
-  const { baseQuat, coreGeo, glowGeo, coreMat, glowMat, dotMat } = useMemo(() => {
+  const { baseQuat, coreGeo, glowGeo, coreUnit, glowUnit, coreMat, glowMat, dotMat } = useMemo(() => {
     const rel = new THREE.Vector3(
       object.target[0] - object.position[0],
       object.target[1] - object.position[1],
@@ -45,6 +45,13 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     const glow = new THREE.CylinderGeometry(0.06, 0.11, len, 8, 1, true);
     glow.translate(0, -len / 2, 0);
 
+    // Unit-length beams (0 → -1 along Y) for the custom chain, scaled per beam
+    // so each tip lands exactly on the drawn point (variable throw).
+    const coreU = new THREE.CylinderGeometry(0.02, 0.02, 1, 6, 1, true);
+    coreU.translate(0, -0.5, 0);
+    const glowU = new THREE.CylinderGeometry(0.08, 0.08, 1, 8, 1, true);
+    glowU.translate(0, -0.5, 0);
+
     const mkMat = (opacity: number) =>
       new THREE.MeshBasicMaterial({
         color: '#39ff14',
@@ -54,7 +61,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         depthWrite: false,
         side: THREE.DoubleSide,
       });
-    return { baseQuat: q, coreGeo: core, glowGeo: glow, coreMat: mkMat(0), glowMat: mkMat(0), dotMat: mkMat(0.2) };
+    return { baseQuat: q, coreGeo: core, glowGeo: glow, coreUnit: coreU, glowUnit: glowU, coreMat: mkMat(0), glowMat: mkMat(0), dotMat: mkMat(0.2) };
   }, [object.position, object.target]);
 
   useFrame(() => {
@@ -99,14 +106,23 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       const count = Math.max(1, Math.min(MAX_CHAIN, Math.round(lm.count ?? 40)));
       const local = Math.max(0, state.time - (lm.since ?? 0));
       const dir = lm.tilt ?? 90;
+      dummy.rotation.set(0, 0, 0);
       for (let i = 0; i < count; i++) {
         const p = laserChainPhase(local, lm.speed, lm.spacing ?? 3, i);
-        const r = customRot(lm.path, dir, CHAIN_AMP, p);
-        dummy.rotation.set(r.x, 0, r.z);
+        // Point the beam from the head to the drawn point; its tip lands there,
+        // so the chain of tips traces the drawing like a pencil.
+        const pt = laserChainPoint(lm.path, dir, p);
+        tmpVec.set(pt[0], pt[1], pt[2]);
+        const len = Math.max(0.001, tmpVec.length());
+        tmpDir.copy(tmpVec).multiplyScalar(1 / len);
+        dummy.position.set(0, 0, 0);
+        dummy.quaternion.setFromUnitVectors(UP_DOWN, tmpDir);
+        dummy.scale.set(1, len, 1);
         dummy.updateMatrix();
         coreInst.current.setMatrixAt(i, dummy.matrix);
         glowInst.current.setMatrixAt(i, dummy.matrix);
       }
+      dummy.scale.set(1, 1, 1);
       coreInst.current.count = count;
       glowInst.current.count = count;
       coreInst.current.instanceMatrix.needsUpdate = true;
@@ -125,9 +141,8 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         <circleGeometry args={[0.05, 16]} />
       </mesh>
 
-      {/* Beams are not selectable — clicks pass through to objects behind. */}
+      {/* Preset fan — aimed at the target (not selectable). */}
       <group quaternion={baseQuat}>
-        {/* Preset fan */}
         <group ref={moveRef}>
           {Array.from({ length: BEAM_COUNT }).map((_, i) => (
             <group key={i} ref={(el) => (beamRefs.current[i] = el)}>
@@ -136,11 +151,12 @@ export function LaserFixture({ object }: { object: SceneObject }) {
             </group>
           ))}
         </group>
-
-        {/* Custom chain (instanced, up to 500 beams) */}
-        <instancedMesh ref={glowInst} args={[glowGeo, glowMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
-        <instancedMesh ref={coreInst} args={[coreGeo, coreMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
       </group>
+
+      {/* Custom chain — beams point from the head to points on the drawn shape,
+          in the laser's own local frame (independent of the target aim). */}
+      <instancedMesh ref={glowInst} args={[glowUnit, glowMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
+      <instancedMesh ref={coreInst} args={[coreUnit, coreMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
     </group>
   );
 }
