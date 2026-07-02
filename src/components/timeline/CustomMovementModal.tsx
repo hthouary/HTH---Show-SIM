@@ -73,18 +73,24 @@ export function CustomMovementModal({ event, onClose }: { event: ShowEvent; onCl
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${H}`}
-            className="w-full touch-none rounded-lg border border-ink-600 bg-ink-950"
-            style={{ height: H, cursor: 'crosshair' }}
+            className="w-full touch-none select-none rounded-lg border border-ink-600 bg-ink-950"
+            style={{ height: H, cursor: 'crosshair', touchAction: 'none' }}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={onUp}
+            onPointerCancel={onUp}
           >
-            {/* grid + centre (rest aim) */}
-            <line x1={W / 2} y1={0} x2={W / 2} y2={H} stroke="#1e2836" strokeWidth={1} />
-            <line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke="#1e2836" strokeWidth={1} />
-            {path.length > 1 && <polyline points={poly} fill="none" stroke="#22d3ee" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
-            {path.length > 0 && <circle cx={path[0][0] * W} cy={path[0][1] * H} r={4} fill="#39ff14" />}
-            {path.length > 1 && <circle cx={path[path.length - 1][0] * W} cy={path[path.length - 1][1] * H} r={4} fill="#f43f5e" />}
+            {/* Everything drawn is decorative: pointer-events none routes every
+                touch to the <svg> itself (touch-action: none), so the finger can
+                pass over the line / dots without the popup starting to scroll. */}
+            <g style={{ pointerEvents: 'none' }}>
+              {/* grid + centre (rest aim) */}
+              <line x1={W / 2} y1={0} x2={W / 2} y2={H} stroke="#1e2836" strokeWidth={1} />
+              <line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke="#1e2836" strokeWidth={1} />
+              {path.length > 1 && <polyline points={poly} fill="none" stroke="#22d3ee" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
+              {path.length > 0 && <circle cx={path[0][0] * W} cy={path[0][1] * H} r={4} fill="#39ff14" />}
+              {path.length > 1 && <circle cx={path[path.length - 1][0] * W} cy={path[path.length - 1][1] * H} r={4} fill="#f43f5e" />}
+            </g>
           </svg>
           <button
             className="btn absolute right-2 top-2 h-6 px-2 text-[11px]"
