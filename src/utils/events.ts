@@ -28,6 +28,10 @@ export interface MoveState {
   amp?: number;
   /** How the path repeats when the action outlasts one traversal. */
   repeat?: 'loop' | 'pingpong';
+  /** Laser custom chain: number of beams (1..500). */
+  count?: number;
+  /** Laser custom chain: spacing (phase offset) between consecutive beams. */
+  spacing?: number;
   /** Absolute show time the action started (for local phase). */
   since?: number;
 }
@@ -229,10 +233,16 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       case 'laser_on': {
         if (active) {
           const intensity = envelope(local) * 0.5 + 0.5;
-          const move: MoveState = {
-            pattern: str(ev.params, 'pattern', 'fixed') as MovementPreset,
-            speed: num(ev.params, 'speed', 0),
-          };
+          const pattern = str(ev.params, 'pattern', 'fixed') as MovementPreset;
+          const move: MoveState = { pattern, speed: num(ev.params, 'speed', 0) };
+          if (pattern === 'custom') {
+            const raw = ev.params['path'];
+            move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
+            move.tilt = num(ev.params, 'tilt', 90);
+            move.count = num(ev.params, 'count', 40);
+            move.spacing = num(ev.params, 'spacing', 3);
+            move.since = ev.time;
+          }
           const c = ev.params['color'];
           for (const tg of targets) {
             if (tg === 'all') {

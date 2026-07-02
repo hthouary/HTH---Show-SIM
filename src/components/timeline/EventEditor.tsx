@@ -79,7 +79,7 @@ function ParamFields({ event }: { event: ShowEvent }) {
       return (
         <div className="flex flex-col gap-3">
           <ColorField label={tr('param.color')} value={col('color', '#39ff14')} onChange={(v) => setParam('color', v)} />
-          {movementFields('circular', false)}
+          {movementFields('circular', true)}
         </div>
       );
     case 'light_intensity':

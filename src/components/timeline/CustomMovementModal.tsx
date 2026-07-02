@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { ShowEvent } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
+import { eventCategory } from '../../data/catalog';
 import { Modal } from '../ui/Modal';
 import { SliderField } from '../ui/fields';
 import { Icon } from '../ui/Icon';
@@ -23,12 +24,15 @@ export function CustomMovementModal({ event, onClose }: { event: ShowEvent; onCl
   const pts = useRef<number[][]>([]);
 
   const params = event.params;
+  const isLaser = eventCategory(event.type) === 'lasers';
   const path: number[][] = Array.isArray(params.path) ? (params.path as number[][]) : [];
   const numP = (k: string, d: number) => (typeof params[k] === 'number' ? (params[k] as number) : d);
   const tilt = numP('tilt', 90);
   const cycle = numP('cycle', 2);
   const speed = numP('speed', 50);
   const amp = numP('amp', 50);
+  const count = numP('count', 40);
+  const spacing = numP('spacing', 3);
   const repeat = params.repeat === 'pingpong' ? 'pingpong' : 'loop';
 
   const set = (patch: Record<string, unknown>) => update(event.id, { params: { ...event.params, ...patch } });
@@ -93,35 +97,46 @@ export function CustomMovementModal({ event, onClose }: { event: ShowEvent; onCl
           </button>
         </div>
 
-        {/* Inclination */}
+        {/* Direction (0..360) */}
         <div>
-          <SliderField label={t('custom.tilt')} value={tilt} min={0} max={180} step={5} onChange={(v) => set({ tilt: v })} />
+          <SliderField label={t('custom.tilt')} value={tilt} min={0} max={360} step={5} onChange={(v) => set({ tilt: v })} />
           <div className="mt-0.5 text-[10px] text-slate-600">{t('custom.tiltHint')}</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <SliderField label={t('custom.cycle')} value={cycle} min={0.5} max={20} step={0.5} onChange={(v) => set({ cycle: v })} />
-          <SliderField label={t('field.speed')} value={speed} min={0} max={100} step={1} onChange={(v) => set({ speed: v })} />
-        </div>
-        <SliderField label={t('custom.amp')} value={amp} min={0} max={100} step={1} onChange={(v) => set({ amp: v })} />
+        {isLaser ? (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <SliderField label={t('field.speed')} value={speed} min={0} max={100} step={1} onChange={(v) => set({ speed: v })} />
+              <SliderField label={t('custom.spacing')} value={spacing} min={0} max={100} step={1} onChange={(v) => set({ spacing: v })} />
+            </div>
+            <SliderField label={t('custom.count')} value={count} min={1} max={500} step={1} onChange={(v) => set({ count: Math.round(v) })} />
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <SliderField label={t('custom.cycle')} value={cycle} min={0.5} max={20} step={0.5} onChange={(v) => set({ cycle: v })} />
+              <SliderField label={t('field.speed')} value={speed} min={0} max={100} step={1} onChange={(v) => set({ speed: v })} />
+            </div>
+            <SliderField label={t('custom.amp')} value={amp} min={0} max={100} step={1} onChange={(v) => set({ amp: v })} />
 
-        {/* Repeat mode */}
-        <div>
-          <div className="field-label">{t('custom.repeat')}</div>
-          <div className="flex gap-2">
-            {(['loop', 'pingpong'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => set({ repeat: r })}
-                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs ${
-                  repeat === r ? 'border-accent-cyan/50 bg-accent-cyan/15 text-accent-cyan' : 'border-ink-700 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {t(`custom.${r}`)}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div>
+              <div className="field-label">{t('custom.repeat')}</div>
+              <div className="flex gap-2">
+                {(['loop', 'pingpong'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => set({ repeat: r })}
+                    className={`flex-1 rounded-lg border px-2 py-1.5 text-xs ${
+                      repeat === r ? 'border-accent-cyan/50 bg-accent-cyan/15 text-accent-cyan' : 'border-ink-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {t(`custom.${r}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         <button className="btn btn-accent mt-1" onClick={onClose}>
           {t('custom.done')}

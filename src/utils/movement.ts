@@ -69,19 +69,52 @@ export function movementSeed(position: [number, number, number]): number {
   return position[0] * 1.3 + position[2] * 0.7;
 }
 
-const INCL_MAX = 0.9; // base tilt at inclination 0 / 180 (radians)
 const CUSTOM_AMP = 0.95; // beam swing at amplitude 100 (radians)
 
+/** Base pitch (radians, +down) from the 0..360 direction dial: 0 down · 90 forward · 180 up · 270 behind. */
+function directionTilt(dir: number): number {
+  return ((90 - dir) * Math.PI) / 180;
+}
+
+/** Sample the drawn path at parameter `p` (0..1) → normalized [x,y]. */
+function samplePath(path: number[][], p: number): [number, number] {
+  const n = path.length;
+  const f = Math.max(0, Math.min(1, p)) * (n - 1);
+  const i0 = Math.floor(f);
+  const i1 = Math.min(n - 1, i0 + 1);
+  const frac = f - i0;
+  return [
+    path[i0][0] + (path[i1][0] - path[i0][0]) * frac,
+    path[i0][1] + (path[i1][1] - path[i0][1]) * frac,
+  ];
+}
+
 /**
- * Custom moving-head movement: the beam traces a hand-drawn path. The path is a
- * list of normalized [x,y] points (0..1) in the draw box; its centre is the
- * beam's rest aim. `tilt` (0 down · 90 forward · 180 up) sets the base tilt the
- * movement happens around; `cycle` is the seconds per pass at speed 50; `speed`
- * scales that; `repeat` chooses restart ('loop') or back-and-forth ('pingpong').
+ * Beam rotation for a custom-drawn path sampled at phase `p` (0..1). `dir` is
+ * the 0..360 direction dial (base pitch), `amp` the swing size (0..100). Shared
+ * by moving heads and each beam of a laser chain.
+ */
+export function customRot(
+  path: number[][] | undefined,
+  dir: number,
+  amp: number,
+  p: number,
+): { x: number; z: number } {
+  const baseX = directionTilt(dir);
+  if (!path || path.length < 2) return { x: baseX, z: 0 };
+  const [px, py] = samplePath(path, p);
+  const ampF = (Math.min(100, Math.max(0, amp)) / 100) * CUSTOM_AMP;
+  return { x: baseX + (0.5 - py) * 2 * ampF, z: (px - 0.5) * 2 * ampF };
+}
+
+/**
+ * Custom moving-head movement: the beam traces a hand-drawn path over time.
+ * `dir` (0..360) sets the base pitch; `cycle` is the seconds per pass at speed
+ * 50; `speed` scales that; `repeat` chooses restart ('loop') or back-and-forth.
  */
 export function customMovement(
   path: number[][] | undefined,
-  tilt: number,
+  dir: number,
   cycle: number,
   speed: number,
   amp: number,
@@ -89,9 +122,7 @@ export function customMovement(
   now: number,
   since: number,
 ): { x: number; z: number } {
-  const baseX = ((90 - tilt) / 90) * INCL_MAX;
-  if (!path || path.length < 2 || speed <= 0) return { x: baseX, z: 0 };
-
+  if (!path || path.length < 2 || speed <= 0) return { x: directionTilt(dir), z: 0 };
   const passTime = Math.max(0.05, cycle * (50 / Math.max(1, speed)));
   const local = Math.max(0, now - since);
   let p: number;
@@ -101,19 +132,16 @@ export function customMovement(
   } else {
     p = (local / passTime) % 1;
   }
+  return customRot(path, dir, amp, p);
+}
 
-  const n = path.length;
-  const f = p * (n - 1);
-  const i0 = Math.floor(f);
-  const i1 = Math.min(n - 1, i0 + 1);
-  const frac = f - i0;
-  const px = path[i0][0] + (path[i1][0] - path[i0][0]) * frac;
-  const py = path[i0][1] + (path[i1][1] - path[i0][1]) * frac;
-
-  const ampF = (Math.min(100, Math.max(0, amp)) / 100) * CUSTOM_AMP;
-  const dx = (px - 0.5) * 2; // -1..1 → pan
-  const dy = (0.5 - py) * 2; // -1..1 → tilt (up positive; canvas y grows downward)
-  return { x: baseX + dy * ampF, z: dx * ampF };
+/** Phase (0..1) along the path for beam `i` of a laser chain at time `local`. */
+export function laserChainPhase(local: number, speed: number, spacing: number, i: number): number {
+  const rate = (Math.max(0, speed) / 100) * 1.2; // path traversals per second
+  const gap = Math.max(0, spacing) / 1000; // phase offset between consecutive beams
+  let p = (local * rate - i * gap) % 1;
+  if (p < 0) p += 1;
+  return p;
 }
 
 // --- Laser projectors -------------------------------------------------------

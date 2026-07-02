@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
 import { laserColorForObject, laserMoveForObject, laserOnForObject } from '../../utils/events';
-import { laserBeamDir, laserFanRot, movementSeed } from '../../utils/movement';
+import { customRot, laserBeamDir, laserChainPhase, laserFanRot, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
 import { ignoreRaycast } from './interaction';
@@ -11,26 +11,23 @@ import { ignoreRaycast } from './interaction';
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
 const tmpDir = new THREE.Vector3();
+const dummy = new THREE.Object3D();
 const BEAM_COUNT = 12;
+const MAX_CHAIN = 500; // custom laser chain cap
+const CHAIN_AMP = 70; // how wide the drawn path maps for lasers (0..100)
 
 /**
- * A laser projector: a head plus a long fan of thin beams that only appear
- * while a `laser_on` event is active. Each beam is a razor-thin bright core
- * wrapped in a soft additive glow.
- *
- * The movement preset shapes the *figure the beams draw* in the haze, by
- * orienting each beam individually every frame:
- *  - circular   → the beams form a cone / ring (a circle) that rotates around
- *                 its axis — stand in the middle and they turn around you;
- *  - wave       → a horizontal sheet of beams that ripples like a travelling
- *                 wave — stand underneath and it moves like a wave;
- *  - up / left  → a plain fan swung up-down / left-right as a whole;
- *  - fixed      → a static fan.
+ * A laser projector. Preset movements shape a fan of thin beams. The 'custom'
+ * movement instead sends a *chain* of beams (1..500) one after another along a
+ * hand-drawn path — controlled by count, spacing and speed — rendered with an
+ * instanced mesh so hundreds of beams stay cheap.
  */
 export function LaserFixture({ object }: { object: SceneObject }) {
   const showRef = useShowStateRef();
   const moveRef = useRef<THREE.Group>(null);
   const beamRefs = useRef<(THREE.Group | null)[]>([]);
+  const coreInst = useRef<THREE.InstancedMesh>(null);
+  const glowInst = useRef<THREE.InstancedMesh>(null);
 
   const { baseQuat, coreGeo, glowGeo, coreMat, glowMat, dotMat } = useMemo(() => {
     const rel = new THREE.Vector3(
@@ -57,14 +54,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         depthWrite: false,
         side: THREE.DoubleSide,
       });
-    return {
-      baseQuat: q,
-      coreGeo: core,
-      glowGeo: glow,
-      coreMat: mkMat(0),
-      glowMat: mkMat(0),
-      dotMat: mkMat(0.2),
-    };
+    return { baseQuat: q, coreGeo: core, glowGeo: glow, coreMat: mkMat(0), glowMat: mkMat(0), dotMat: mkMat(0.2) };
   }, [object.position, object.target]);
 
   useFrame(() => {
@@ -75,8 +65,8 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     const on = laserOnForObject(state, object.id) && state.blackout < 0.6;
     const intensity = on ? state.laser.intensity : 0;
     const playing = useShowStore.getState().isPlaying;
-    // Steady beams, only a very slow shimmer while playing (frozen when paused).
     const shimmer = playing ? 0.97 + Math.sin(state.time * 0.8) * 0.03 : 1;
+    const isCustom = lm.pattern === 'custom';
 
     coreMat.color.copy(tmpColor);
     coreMat.opacity = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
@@ -85,9 +75,7 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     dotMat.color.copy(tmpColor);
     dotMat.opacity = on ? 1 : 0.12;
 
-    // Shape the fan: orient each beam so the projected figure (circle / wave / …)
-    // forms and animates. Phase uses the show time, so it stays in sync with
-    // playback, scrubs correctly and freezes when paused.
+    // --- Fan presets (fixed / circular / wave / …) --------------------------
     const seed = movementSeed(object.position);
     for (let i = 0; i < BEAM_COUNT; i++) {
       const g = beamRefs.current[i];
@@ -96,13 +84,33 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       tmpDir.set(d[0], d[1], d[2]);
       g.quaternion.setFromUnitVectors(UP_DOWN, tmpDir);
     }
-
-    // Whole-fan pan / tilt for the presets that swing the fan as one.
     if (moveRef.current) {
-      moveRef.current.visible = on;
+      moveRef.current.visible = on && !isCustom;
       const fan = laserFanRot(lm.pattern, lm.speed, state.time, seed);
       moveRef.current.rotation.x = fan.x;
       moveRef.current.rotation.z = fan.z;
+    }
+
+    // --- Custom chain: N beams following the drawn path one after another ---
+    const showChain = on && isCustom;
+    if (coreInst.current) coreInst.current.visible = showChain;
+    if (glowInst.current) glowInst.current.visible = showChain;
+    if (showChain && coreInst.current && glowInst.current) {
+      const count = Math.max(1, Math.min(MAX_CHAIN, Math.round(lm.count ?? 40)));
+      const local = Math.max(0, state.time - (lm.since ?? 0));
+      const dir = lm.tilt ?? 90;
+      for (let i = 0; i < count; i++) {
+        const p = laserChainPhase(local, lm.speed, lm.spacing ?? 3, i);
+        const r = customRot(lm.path, dir, CHAIN_AMP, p);
+        dummy.rotation.set(r.x, 0, r.z);
+        dummy.updateMatrix();
+        coreInst.current.setMatrixAt(i, dummy.matrix);
+        glowInst.current.setMatrixAt(i, dummy.matrix);
+      }
+      coreInst.current.count = count;
+      glowInst.current.count = count;
+      coreInst.current.instanceMatrix.needsUpdate = true;
+      glowInst.current.instanceMatrix.needsUpdate = true;
     }
   });
 
@@ -117,8 +125,9 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         <circleGeometry args={[0.05, 16]} />
       </mesh>
 
-      {/* Laser beams are not selectable — clicks pass through to objects behind. */}
+      {/* Beams are not selectable — clicks pass through to objects behind. */}
       <group quaternion={baseQuat}>
+        {/* Preset fan */}
         <group ref={moveRef}>
           {Array.from({ length: BEAM_COUNT }).map((_, i) => (
             <group key={i} ref={(el) => (beamRefs.current[i] = el)}>
@@ -127,6 +136,10 @@ export function LaserFixture({ object }: { object: SceneObject }) {
             </group>
           ))}
         </group>
+
+        {/* Custom chain (instanced, up to 500 beams) */}
+        <instancedMesh ref={glowInst} args={[glowGeo, glowMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
+        <instancedMesh ref={coreInst} args={[coreGeo, coreMat, MAX_CHAIN]} visible={false} frustumCulled={false} raycast={ignoreRaycast} />
       </group>
     </group>
   );
