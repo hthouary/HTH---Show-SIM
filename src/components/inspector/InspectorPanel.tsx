@@ -1,10 +1,111 @@
+import { useState } from 'react';
 import { useShowStore, selectSelectedEvent, selectSelectedObject } from '../../store/useShowStore';
-import { CATALOG_BY_TYPE } from '../../data/catalog';
-import { ColorField, NumberField, SliderField, Vec3Field } from '../ui/fields';
+import { CATALOG_BY_TYPE, isRiggable, isStructure } from '../../data/catalog';
+import { ColorField, NumberField, SelectField, SliderField, Vec3Field } from '../ui/fields';
 import { Icon } from '../ui/Icon';
 import { EventEditor } from '../timeline/EventEditor';
-import type { SceneObject } from '../../types/show';
+import type { SceneObject, Vec3 } from '../../types/show';
 import { useT } from '../../i18n/useT';
+
+/** Rig-to-structure picker — clips a light / laser onto a truss so it follows it. */
+function RigField({ object }: { object: SceneObject }) {
+  const structures = useShowStore((s) => s.project.objects.filter((o) => isStructure(o.type)));
+  const attach = useShowStore((s) => s.attachToParent);
+  const t = useT();
+  if (!isRiggable(object.type) || structures.length === 0) return null;
+  return (
+    <div className="border-t border-ink-700/70 pt-3">
+      <SelectField
+        label={t('rig.label')}
+        value={object.parent ?? ''}
+        options={[{ value: '', label: t('rig.none') }, ...structures.map((s) => ({ value: s.id, label: s.name }))]}
+        onChange={(v) => attach(object.id, v || null)}
+      />
+    </div>
+  );
+}
+
+/** Duplicate / array / mirror tools — operate on the whole current selection. */
+function BuildTools() {
+  const duplicateSelection = useShowStore((s) => s.duplicateSelection);
+  const arraySelection = useShowStore((s) => s.arraySelection);
+  const mirrorSelection = useShowStore((s) => s.mirrorSelection);
+  const [count, setCount] = useState(4);
+  const [step, setStep] = useState<Vec3>([2, 0, 0]);
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink-700/70 pt-3">
+      <div className="field-label">{t('tools.title')}</div>
+      <div className="flex gap-2">
+        <button className="btn flex-1" onClick={duplicateSelection}>
+          <Icon name="copy" size={14} /> {t('tools.duplicate')}
+        </button>
+        <button className="btn flex-1" onClick={() => mirrorSelection('x')} title={t('tools.mirrorX.title')}>
+          {t('tools.mirrorX')}
+        </button>
+        <button className="btn flex-1" onClick={() => mirrorSelection('z')} title={t('tools.mirrorZ.title')}>
+          {t('tools.mirrorZ')}
+        </button>
+      </div>
+      <div className="rounded-lg border border-ink-700/70 bg-ink-850 p-2">
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField label={t('tools.count')} value={count} min={2} max={50} step={1} onChange={(n) => setCount(Math.round(n))} />
+        </div>
+        <div className="mt-2">
+          <Vec3Field label={t('tools.step')} value={step} step={0.5} onChange={setStep} />
+        </div>
+        <button className="btn mt-2 w-full" onClick={() => arraySelection(count, step)}>
+          <Icon name="plus" size={14} /> {t('tools.create')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Panel shown when 2+ objects are selected: align / distribute + build tools. */
+function MultiInspector() {
+  const ids = useShowStore((s) => s.selectedObjectIds);
+  const anchorId = useShowStore((s) => s.selectedObjectId);
+  const alignSelection = useShowStore((s) => s.alignSelection);
+  const distributeSelection = useShowStore((s) => s.distributeSelection);
+  const deleteObject = useShowStore((s) => s.deleteObject);
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-ink-700 text-accent-cyan">
+          <Icon name="box" size={16} />
+        </span>
+        <div className="text-sm font-medium text-slate-200">{t('multi.selected', { n: ids.length })}</div>
+      </div>
+
+      <div>
+        <div className="field-label">{t('tools.align')}</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {(['X', 'Y', 'Z'] as const).map((ax, i) => (
+            <button key={ax} className="btn" onClick={() => alignSelection(i as 0 | 1 | 2)}>
+              {ax}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="field-label">{t('tools.distribute')}</div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button className="btn" onClick={() => distributeSelection(0)}>X</button>
+          <button className="btn" onClick={() => distributeSelection(2)}>Z</button>
+        </div>
+      </div>
+
+      <BuildTools />
+
+      <button className="btn btn-danger" onClick={() => anchorId && deleteObject(anchorId)}>
+        <Icon name="trash" size={14} /> {t('multi.deleteAll')}
+      </button>
+    </div>
+  );
+}
 
 function ObjectInspector({ object }: { object: SceneObject }) {
   const update = useShowStore((s) => s.updateObject);
@@ -58,6 +159,10 @@ function ObjectInspector({ object }: { object: SceneObject }) {
         </>
       )}
 
+      <RigField object={object} />
+
+      <BuildTools />
+
       <div className="mt-1 flex gap-2 border-t border-ink-700/70 pt-3">
         <button className="btn flex-1" onClick={() => duplicate(object.id)}>
           <Icon name="copy" size={14} /> {t('action.duplicate')}
@@ -86,6 +191,7 @@ function EmptyState() {
 export function InspectorPanel() {
   const object = useShowStore(selectSelectedObject);
   const event = useShowStore(selectSelectedEvent);
+  const multi = useShowStore((s) => s.selectedObjectIds.length > 1);
   const selectObject = useShowStore((s) => s.selectObject);
   const t = useT();
 
@@ -105,7 +211,15 @@ export function InspectorPanel() {
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {object ? <ObjectInspector object={object} /> : event ? <EventEditor event={event} /> : <EmptyState />}
+        {multi ? (
+          <MultiInspector />
+        ) : object ? (
+          <ObjectInspector object={object} />
+        ) : event ? (
+          <EventEditor event={event} />
+        ) : (
+          <EmptyState />
+        )}
       </div>
     </aside>
   );

@@ -15,8 +15,9 @@ const ACCENT: Record<LibraryCategory, string> = {
 /** Scene tree: list every object to select / hide / duplicate / delete it. */
 export function Outliner() {
   const objects = useShowStore((s) => s.project.objects);
-  const selectedId = useShowStore((s) => s.selectedObjectId);
+  const selectedIds = useShowStore((s) => s.selectedObjectIds);
   const selectObject = useShowStore((s) => s.selectObject);
+  const toggleSelectObject = useShowStore((s) => s.toggleSelectObject);
   const deleteObject = useShowStore((s) => s.deleteObject);
   const duplicateObject = useShowStore((s) => s.duplicateObject);
   const updateObject = useShowStore((s) => s.updateObject);
@@ -46,11 +47,11 @@ export function Outliner() {
               </h4>
               <div className="flex flex-col">
                 {items.map((o) => {
-                  const active = o.id === selectedId;
+                  const active = selectedIds.includes(o.id);
                   return (
                     <div
                       key={o.id}
-                      onClick={() => selectObject(o.id)}
+                      onClick={(e) => (e.shiftKey ? toggleSelectObject(o.id) : selectObject(o.id))}
                       className={`group flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs ${
                         active ? 'bg-accent-cyan/15 text-accent-cyan' : 'text-slate-300 hover:bg-ink-800'
                       } ${o.hidden ? 'opacity-45' : ''}`}

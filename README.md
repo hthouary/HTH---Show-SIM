@@ -115,6 +115,13 @@ A switch in the top bar flips between the two ways you work on a show:
   and an aperture window; box-truss lattices (horizontal beams, vertical towers
   and goalpost arches); flown PA line-arrays; and dedicated FX machine bodies
   (hazer, flame canister, cryo bottle, confetti blower).
+- **Power tools** — Shift-click to multi-select; then align to the anchor,
+  distribute evenly, duplicate, **array** (N copies along an offset) and
+  **mirror** the selection across the stage centre. Move the whole selection
+  with the gizmo. `Ctrl/Cmd+D` duplicates.
+- **Rigging** — clip a light / laser onto a truss (drop it straight onto the
+  structure, or pick a parent in the inspector); moving the structure carries
+  its rigged fixtures with it.
 - **Volumetric lights** — a real SpotLight + additive beam cone,
   color/intensity/beam-angle/target, movement animation and a global strobe flash.
 - **Lasers** — animated additive beam fans / drawn chains, per-fixture color.
@@ -128,10 +135,12 @@ A switch in the top bar flips between the two ways you work on a show:
   playhead, per-track “add event”, full event editor (track/type/target/time/
   duration/params).
 - **Audio** — import a local file, play / pause / stop / seek, analyser-driven
-  reactivity, clean teardown.
+  reactivity, clean teardown. The track is **kept in IndexedDB per project**, so
+  a saved show plays back with its audio after a reload — no re-importing.
 - **Projects** — New (with confirm), Save / Load via `localStorage`, Export /
   Import JSON, defensive sanitisation of loaded files.
-- **Shortcuts** — `Space` play/pause, `Delete`/`Backspace` remove selection.
+- **Shortcuts** — `Space` play/pause, `Delete`/`Backspace` remove selection,
+  `Ctrl/Cmd+D` duplicate, `Ctrl/Cmd+Z` undo / redo, `W`/`E` move / rotate.
 
 ---
 
@@ -140,9 +149,8 @@ A switch in the top bar flips between the two ways you work on a show:
 - Particle FX and beams are stylised, not physically accurate.
 - The audio waveform is sampled at load (no live re-decode); very long files
   take a moment to analyse.
-- Audio files themselves are **not** stored in projects (only the file name) —
-  re-import the track after loading a saved project.
-- No undo/redo yet; no multi-select.
+- Audio blobs live in IndexedDB (per browser); they are not embedded in the
+  exported JSON, so a shared export still needs its track re-imported.
 - Single large JS bundle (Three.js) — no code-splitting tuning yet.
 
 ## Possible next steps

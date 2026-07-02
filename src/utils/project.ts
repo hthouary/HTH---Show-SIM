@@ -97,6 +97,7 @@ export function sanitizeProject(p: Project): Project {
     beamAngle: typeof o.beamAngle === 'number' ? o.beamAngle : 12,
     target: vec3(o.target, [0, 0, 4]),
     hidden: o.hidden === true ? true : undefined,
+    parent: typeof o.parent === 'string' ? o.parent : undefined,
   }));
 
   // Normalize each event's timing, then migrate the timeline into the lane model

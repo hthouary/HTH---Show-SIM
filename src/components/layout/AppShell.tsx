@@ -34,10 +34,16 @@ export function AppShell() {
   usePlaybackClock();
   const togglePlay = useShowStore((s) => s.togglePlay);
   const deleteObject = useShowStore((s) => s.deleteObject);
+  const duplicateSelection = useShowStore((s) => s.duplicateSelection);
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
   const undo = useShowStore((s) => s.undo);
   const redo = useShowStore((s) => s.redo);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
+
+  // Restore the current project's saved audio track (best-effort) on first load.
+  useEffect(() => {
+    void useShowStore.getState().restoreAudio();
+  }, []);
 
   // Global keyboard shortcuts.
   useEffect(() => {
@@ -58,6 +64,12 @@ export function AppShell() {
         redo();
         return;
       }
+      // Ctrl / Cmd + D duplicates the current selection.
+      if (!typing && (e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        duplicateSelection();
+        return;
+      }
 
       if (typing) return;
       if (e.code === 'Space') {
@@ -73,7 +85,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, deleteObject, selectedObjectId, undo, redo, setGizmoMode]);
+  }, [togglePlay, deleteObject, duplicateSelection, selectedObjectId, undo, redo, setGizmoMode]);
 
   const isMobile = useIsMobile();
 

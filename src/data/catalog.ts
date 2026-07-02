@@ -254,6 +254,16 @@ export function isFxEmitter(type: SceneObjectType): boolean {
   );
 }
 
+/** Truss-family structures that fixtures can be rigged onto. */
+export function isStructure(type: SceneObjectType): boolean {
+  return type === 'truss' || type === 'truss_tower' || type === 'truss_arch';
+}
+
+/** Fixtures that can be clipped onto a structure (lights + lasers). */
+export function isRiggable(type: SceneObjectType): boolean {
+  return isLightFixture(type) || type === 'laser';
+}
+
 let idCounter = 0;
 /** Reasonably-unique id generator (good enough for a local V1). */
 export function createId(prefix = 'obj'): string {

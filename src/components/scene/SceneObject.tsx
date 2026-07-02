@@ -1,10 +1,10 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
 import { type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { SceneObject as SceneObjectModel } from '../../types/show';
+import type { SceneObject as SceneObjectModel, Vec3 } from '../../types/show';
 import { useShowStore, isHighlighted } from '../../store/useShowStore';
-import { CATALOG_BY_TYPE } from '../../data/catalog';
+import { CATALOG_BY_TYPE, isRiggable, isStructure } from '../../data/catalog';
 import { LightFixture } from './LightFixture';
 import { LaserFixture } from './LaserFixture';
 import { LedScreen } from './LedScreen';
@@ -69,16 +69,20 @@ function tuneHelper(h: THREE.Box3Helper | null) {
 
 export function SceneObject({ object }: { object: SceneObjectModel }) {
   const selectObject = useShowStore((s) => s.selectObject);
+  const toggleSelectObject = useShowStore((s) => s.toggleSelectObject);
   const moveObject = useShowStore((s) => s.moveObject);
+  const nudgeSelection = useShowStore((s) => s.nudgeSelection);
   const updateObject = useShowStore((s) => s.updateObject);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
   const placementType = useShowStore((s) => s.placementType);
   const gizmoMode = useShowStore((s) => s.gizmoMode);
   const selected = useShowStore((s) => s.selectedObjectId === object.id);
+  const multi = useShowStore((s) => s.selectedObjectIds.length > 1);
   const highlighted = useShowStore((s) => isHighlighted(s, object.id));
 
   const [node, setNode] = useState<THREE.Group | null>(null);
   const [box, setBox] = useState<THREE.Box3 | null>(null);
+  const dragStart = useRef<THREE.Vector3 | null>(null);
 
   // A white outline box around the object's *body* (excluding the long beams /
   // laser fans / particle fields), recomputed when it becomes highlighted or moves.
@@ -113,15 +117,21 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
   if (object.hidden) return null;
 
   // In placement mode a click drops the armed object at the clicked point.
+  // Dropping a light / laser straight onto a structure clips (rigs) it there.
   const placeAt = (point: THREE.Vector3) => {
     if (!placementType) return;
-    const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
-    addObjectAt(placementType, [round(point.x), defY, round(point.z)]);
+    if (isStructure(object.type) && isRiggable(placementType)) {
+      addObjectAt(placementType, [round(point.x), round(point.y), round(point.z)], object.id);
+    } else {
+      const defY = (CATALOG_BY_TYPE[placementType].defaults.position?.[1] ?? 1) as number;
+      addObjectAt(placementType, [round(point.x), defY, round(point.z)]);
+    }
   };
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     if (placementType) placeAt(e.point);
+    else if (e.nativeEvent.shiftKey) toggleSelectObject(object.id);
     else selectObject(object.id);
   };
 
@@ -155,15 +165,24 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
           size={0.85}
           // Rotation is restricted to the X and Y axes (no Z ring).
           showZ={gizmoMode !== 'rotate'}
+          onMouseDown={() => {
+            dragStart.current = node.position.clone();
+          }}
           onMouseUp={() => {
             if (gizmoMode === 'rotate') {
               const r = node.rotation;
               const r3 = (n: number) => Math.round(n * 1000) / 1000;
               updateObject(object.id, { rotation: [r3(r.x), r3(r.y), r3(r.z)] });
+            } else if (multi && dragStart.current) {
+              // Group move: shift the whole selection by the anchor's delta.
+              const p = node.position;
+              const d: Vec3 = [p.x - dragStart.current.x, p.y - dragStart.current.y, p.z - dragStart.current.z];
+              nudgeSelection(d);
             } else {
               const p = node.position;
               moveObject(object.id, [p.x, p.y, p.z]);
             }
+            dragStart.current = null;
           }}
         />
       )}

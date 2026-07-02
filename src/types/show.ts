@@ -65,6 +65,8 @@ export interface SceneObject {
   target: Vec3;
   /** Hidden in the viewport (still listed in the Outliner). */
   hidden?: boolean;
+  /** Id of a structure this object is rigged to; it follows the parent's moves. */
+  parent?: string;
 }
 
 /** Discrete, time-based effect commands that drive the show. */

@@ -3,6 +3,7 @@ import type { AppMode, Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } 
 import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
+import { deleteAudio, getAudio, putAudio } from '../utils/audioStore';
 import { resolvePlacement, type PlacementSettings } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
 import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
@@ -26,7 +27,10 @@ interface ShowState {
   project: Project;
 
   // ---- Selection ------------------------------------------------------
+  /** Primary / anchor selection (used by the inspector + transform gizmo). */
   selectedObjectId: string | null;
+  /** Full multi-selection set (includes the primary id). */
+  selectedObjectIds: string[];
   selectedEventId: string | null;
 
   // ---- Playback -------------------------------------------------------
@@ -78,12 +82,29 @@ interface ShowState {
 
   // ---- Object actions -------------------------------------------------
   addObject: (type: SceneObjectType) => void;
-  addObjectAt: (type: SceneObjectType, position: Vec3) => void;
+  addObjectAt: (type: SceneObjectType, position: Vec3, parentId?: string | null) => void;
   updateObject: (id: string, patch: Partial<SceneObject>) => void;
   moveObject: (id: string, position: Vec3) => void;
   deleteObject: (id: string) => void;
   duplicateObject: (id: string) => void;
   selectObject: (id: string | null) => void;
+  /** Toggle an object in/out of the multi-selection (Shift-click). */
+  toggleSelectObject: (id: string) => void;
+
+  // ---- Selection / build power tools ----------------------------------
+  /** Translate every selected object (and its aim target) by a delta. */
+  nudgeSelection: (delta: Vec3) => void;
+  duplicateSelection: () => void;
+  /** Stamp `count` copies of the selection, each offset by `step`. */
+  arraySelection: (count: number, step: Vec3) => void;
+  /** Mirror the selection across the stage centre on the X or Z axis. */
+  mirrorSelection: (axis: 'x' | 'z') => void;
+  /** Align every selected object to the anchor on one axis. */
+  alignSelection: (axis: 0 | 1 | 2) => void;
+  /** Evenly distribute the selection along the X or Z axis. */
+  distributeSelection: (axis: 0 | 2) => void;
+  /** Rig an object onto a structure (or detach when parentId is null). */
+  attachToParent: (childId: string, parentId: string | null) => void;
 
   // ---- Mode / build tools ---------------------------------------------
   setAppMode: (mode: AppMode) => void;
@@ -130,6 +151,8 @@ interface ShowState {
   // ---- Audio actions --------------------------------------------------
   loadAudioFile: (file: File) => Promise<void>;
   clearAudio: () => void;
+  /** Restore the current project's saved audio (IndexedDB) after a load. */
+  restoreAudio: () => Promise<void>;
 
   // ---- Project actions ------------------------------------------------
   setProjectName: (name: string) => void;
@@ -261,6 +284,7 @@ export const useShowStore = create<ShowState>((set, get) => {
   return {
     project: startProject,
     selectedObjectId: null,
+    selectedObjectIds: [],
     selectedEventId: null,
     isPlaying: false,
     currentTime: 0,
@@ -338,23 +362,29 @@ export const useShowStore = create<ShowState>((set, get) => {
       set((s) => ({
         project: { ...s.project, objects: [...s.project.objects, obj], updatedAt: Date.now() },
         selectedObjectId: obj.id,
+        selectedObjectIds: [obj.id],
       }));
       get().pushToast('success', tr('toast.added', { name: label }));
     },
 
-    addObjectAt: (type, position) => {
+    addObjectAt: (type, position, parentId = null) => {
       record('add');
       const s = get();
       const label = tr(`obj.${type}.label`);
-      const pos = resolvePlacement(s.project.objects, null, type, 1, position, placement(s));
-      const obj = createSceneObject(type, { position: pos, name: label });
+      // Dropping straight onto a structure clips the fixture there — no grid /
+      // collision resolution, so it lands exactly where you aimed.
+      const pos = parentId
+        ? ([Math.round(position[0] * 100) / 100, Math.round(position[1] * 100) / 100, Math.round(position[2] * 100) / 100] as Vec3)
+        : resolvePlacement(s.project.objects, null, type, 1, position, placement(s));
+      const obj = createSceneObject(type, { position: pos, name: label, parent: parentId ?? undefined });
       set((st) => ({
         project: { ...st.project, objects: [...st.project.objects, obj], updatedAt: Date.now() },
         selectedObjectId: obj.id,
+        selectedObjectIds: [obj.id],
         selectedEventId: null,
         placementType: null,
       }));
-      get().pushToast('success', tr('toast.placed', { name: label }));
+      get().pushToast('success', parentId ? tr('toast.rigged', { name: label }) : tr('toast.placed', { name: label }));
     },
 
     updateObject: (id, patch) => {
@@ -376,11 +406,20 @@ export const useShowStore = create<ShowState>((set, get) => {
         const pos = resolvePlacement(s.project.objects, id, obj.type, obj.scale, position, placement(s));
         // Move the aim target along with the fixture so its beam keeps its angle.
         const delta: Vec3 = [pos[0] - obj.position[0], pos[1] - obj.position[1], pos[2] - obj.position[2]];
-        const target: Vec3 = [obj.target[0] + delta[0], obj.target[1] + delta[1], obj.target[2] + delta[2]];
+        const shift = (o: SceneObject): SceneObject => ({
+          ...o,
+          position: [o.position[0] + delta[0], o.position[1] + delta[1], o.position[2] + delta[2]],
+          target: [o.target[0] + delta[0], o.target[1] + delta[1], o.target[2] + delta[2]],
+        });
         return {
           project: {
             ...s.project,
-            objects: s.project.objects.map((o) => (o.id === id ? { ...o, position: pos, target } : o)),
+            objects: s.project.objects.map((o) => {
+              if (o.id === id) return { ...o, position: pos, target: [obj.target[0] + delta[0], obj.target[1] + delta[1], obj.target[2] + delta[2]] };
+              // Rigged children follow their parent structure.
+              if (o.parent === id) return shift(o);
+              return o;
+            }),
             updatedAt: Date.now(),
           },
         };
@@ -389,18 +428,27 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     deleteObject: (id) => {
       record('delete');
-      set((s) => ({
-        project: {
-          ...s.project,
-          objects: s.project.objects.filter((o) => o.id !== id),
-          // Drop the deleted object from any event that targeted it.
-          events: s.project.events.map((e) =>
-            e.targets.includes(id) ? { ...e, targets: e.targets.filter((t) => t !== id) } : e,
-          ),
-          updatedAt: Date.now(),
-        },
-        selectedObjectId: s.selectedObjectId === id ? null : s.selectedObjectId,
-      }));
+      set((s) => {
+        // Delete the whole current selection when the target is part of it.
+        const ids = s.selectedObjectIds.includes(id) ? s.selectedObjectIds : [id];
+        const idSet = new Set(ids);
+        return {
+          project: {
+            ...s.project,
+            objects: s.project.objects
+              .filter((o) => !idSet.has(o.id))
+              // Orphan any fixtures rigged to a structure we just removed.
+              .map((o) => (o.parent && idSet.has(o.parent) ? { ...o, parent: undefined } : o)),
+            // Drop the deleted objects from any event that targeted them.
+            events: s.project.events.map((e) =>
+              e.targets.some((t) => idSet.has(t)) ? { ...e, targets: e.targets.filter((t) => !idSet.has(t)) } : e,
+            ),
+            updatedAt: Date.now(),
+          },
+          selectedObjectId: idSet.has(s.selectedObjectId ?? '') ? null : s.selectedObjectId,
+          selectedObjectIds: s.selectedObjectIds.filter((x) => !idSet.has(x)),
+        };
+      });
     },
 
     duplicateObject: (id) => {
@@ -412,14 +460,186 @@ export const useShowStore = create<ShowState>((set, get) => {
         id: createId(original.type),
         name: `${original.name} copy`,
         position: [original.position[0] + 1.2, original.position[1], original.position[2] + 1.2],
+        target: [original.target[0] + 1.2, original.target[1], original.target[2] + 1.2],
       };
       set((s) => ({
         project: { ...s.project, objects: [...s.project.objects, copy], updatedAt: Date.now() },
         selectedObjectId: copy.id,
+        selectedObjectIds: [copy.id],
       }));
     },
 
-    selectObject: (id) => set({ selectedObjectId: id, selectedEventId: null }),
+    selectObject: (id) =>
+      set({ selectedObjectId: id, selectedObjectIds: id ? [id] : [], selectedEventId: null }),
+
+    toggleSelectObject: (id) =>
+      set((s) => {
+        const has = s.selectedObjectIds.includes(id);
+        const ids = has ? s.selectedObjectIds.filter((x) => x !== id) : [...s.selectedObjectIds, id];
+        return {
+          selectedObjectIds: ids,
+          selectedObjectId: has ? (ids[ids.length - 1] ?? null) : id,
+          selectedEventId: null,
+        };
+      }),
+
+    // ------------------------------------------------ Selection / power tools
+    nudgeSelection: (delta) => {
+      const ids = get().selectedObjectIds;
+      if (!ids.length || (delta[0] === 0 && delta[1] === 0 && delta[2] === 0)) return;
+      record('move-sel');
+      const idSet = new Set(ids);
+      set((s) => ({
+        project: {
+          ...s.project,
+          objects: s.project.objects.map((o) =>
+            idSet.has(o.id)
+              ? {
+                  ...o,
+                  position: [o.position[0] + delta[0], o.position[1] + delta[1], o.position[2] + delta[2]],
+                  target: [o.target[0] + delta[0], o.target[1] + delta[1], o.target[2] + delta[2]],
+                }
+              : o,
+          ),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    duplicateSelection: () => {
+      const s = get();
+      const originals = s.project.objects.filter((o) => s.selectedObjectIds.includes(o.id));
+      if (!originals.length) return;
+      record('duplicate-sel');
+      const copies = originals.map((o) => ({
+        ...o,
+        id: createId(o.type),
+        name: `${o.name} copy`,
+        parent: undefined,
+        position: [o.position[0] + 1.2, o.position[1], o.position[2] + 1.2] as Vec3,
+        target: [o.target[0] + 1.2, o.target[1], o.target[2] + 1.2] as Vec3,
+      }));
+      set((st) => ({
+        project: { ...st.project, objects: [...st.project.objects, ...copies], updatedAt: Date.now() },
+        selectedObjectId: copies[copies.length - 1].id,
+        selectedObjectIds: copies.map((c) => c.id),
+      }));
+      get().pushToast('success', tr('toast.duplicated', { n: copies.length }));
+    },
+
+    arraySelection: (count, step) => {
+      const s = get();
+      const originals = s.project.objects.filter((o) => s.selectedObjectIds.includes(o.id));
+      const n = Math.max(1, Math.min(50, Math.round(count)));
+      if (!originals.length || n <= 1) return;
+      record('array-sel');
+      const copies: SceneObject[] = [];
+      for (let i = 1; i < n; i++) {
+        for (const o of originals) {
+          copies.push({
+            ...o,
+            id: createId(o.type),
+            name: `${o.name} ${i + 1}`,
+            parent: undefined,
+            position: [o.position[0] + step[0] * i, o.position[1] + step[1] * i, o.position[2] + step[2] * i],
+            target: [o.target[0] + step[0] * i, o.target[1] + step[1] * i, o.target[2] + step[2] * i],
+          });
+        }
+      }
+      set((st) => ({
+        project: { ...st.project, objects: [...st.project.objects, ...copies], updatedAt: Date.now() },
+        selectedObjectIds: [...st.selectedObjectIds, ...copies.map((c) => c.id)],
+      }));
+      get().pushToast('success', tr('toast.arrayed', { n: copies.length }));
+    },
+
+    mirrorSelection: (axis) => {
+      const s = get();
+      const originals = s.project.objects.filter((o) => s.selectedObjectIds.includes(o.id));
+      if (!originals.length) return;
+      record('mirror-sel');
+      const i = axis === 'x' ? 0 : 2;
+      const copies = originals.map((o) => {
+        const position = [...o.position] as Vec3;
+        const target = [...o.target] as Vec3;
+        const rotation = [...o.rotation] as Vec3;
+        position[i] = -position[i];
+        target[i] = -target[i];
+        // Flip the yaw so a mirrored fixture faces symmetrically.
+        rotation[1] = -rotation[1];
+        return { ...o, id: createId(o.type), name: `${o.name} mirror`, parent: undefined, position, target, rotation };
+      });
+      set((st) => ({
+        project: { ...st.project, objects: [...st.project.objects, ...copies], updatedAt: Date.now() },
+        selectedObjectIds: [...st.selectedObjectIds, ...copies.map((c) => c.id)],
+      }));
+      get().pushToast('success', tr('toast.mirrored', { n: copies.length }));
+    },
+
+    alignSelection: (axis) => {
+      const s = get();
+      const ids = s.selectedObjectIds;
+      const anchor = s.project.objects.find((o) => o.id === s.selectedObjectId);
+      if (!anchor || ids.length < 2) return;
+      record('align-sel');
+      const idSet = new Set(ids);
+      const to = anchor.position[axis];
+      set((st) => ({
+        project: {
+          ...st.project,
+          objects: st.project.objects.map((o) => {
+            if (!idSet.has(o.id) || o.id === anchor.id) return o;
+            const d = to - o.position[axis];
+            const position = [...o.position] as Vec3;
+            const target = [...o.target] as Vec3;
+            position[axis] = to;
+            target[axis] += d;
+            return { ...o, position, target };
+          }),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    distributeSelection: (axis) => {
+      const s = get();
+      const sel = s.project.objects.filter((o) => s.selectedObjectIds.includes(o.id));
+      if (sel.length < 3) return;
+      record('distribute-sel');
+      const sorted = [...sel].sort((a, b) => a.position[axis] - b.position[axis]);
+      const min = sorted[0].position[axis];
+      const max = sorted[sorted.length - 1].position[axis];
+      const stepv = (max - min) / (sorted.length - 1);
+      const targetPos = new Map<string, number>();
+      sorted.forEach((o, i) => targetPos.set(o.id, min + stepv * i));
+      set((st) => ({
+        project: {
+          ...st.project,
+          objects: st.project.objects.map((o) => {
+            if (!targetPos.has(o.id)) return o;
+            const to = targetPos.get(o.id)!;
+            const d = to - o.position[axis];
+            const position = [...o.position] as Vec3;
+            const target = [...o.target] as Vec3;
+            position[axis] = to;
+            target[axis] += d;
+            return { ...o, position, target };
+          }),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    attachToParent: (childId, parentId) => {
+      record('rig');
+      set((s) => ({
+        project: {
+          ...s.project,
+          objects: s.project.objects.map((o) => (o.id === childId ? { ...o, parent: parentId ?? undefined } : o)),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
 
     // -------------------------------------------------------- Mode / build
     setAppMode: (mode) => {
@@ -532,6 +752,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         project: { ...st.project, events: [...st.project.events, event], updatedAt: Date.now() },
         selectedEventId: event.id,
         selectedObjectId: null,
+        selectedObjectIds: [],
       }));
     },
 
@@ -619,7 +840,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       }));
     },
 
-    selectEvent: (id) => set({ selectedEventId: id, selectedObjectId: null }),
+    selectEvent: (id) => set({ selectedEventId: id, selectedObjectId: null, selectedObjectIds: [] }),
 
     // -------------------------------------------------------------- Playback
     play: () => {
@@ -653,6 +874,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     loadAudioFile: async (file) => {
       try {
         const dur = await audioEngine.load(file);
+        const pid = get().project.id;
         set((s) => ({
           hasAudio: true,
           duration: dur > 0 ? dur : s.duration,
@@ -664,6 +886,8 @@ export const useShowStore = create<ShowState>((set, get) => {
             updatedAt: Date.now(),
           },
         }));
+        // Persist the track so it comes back when the project is reloaded.
+        void putAudio(pid, file);
         get().pushToast('success', tr('toast.audioLoaded', { name: file.name }));
       } catch (err) {
         get().pushToast('error', tr('toast.audioError', { msg: (err as Error).message }));
@@ -672,6 +896,7 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     clearAudio: () => {
       audioEngine.dispose();
+      void deleteAudio(get().project.id);
       set((s) => ({
         hasAudio: false,
         isPlaying: false,
@@ -679,6 +904,30 @@ export const useShowStore = create<ShowState>((set, get) => {
         duration: s.project.settings.duration,
         project: { ...s.project, settings: { ...s.project.settings, audioName: undefined } },
       }));
+    },
+
+    restoreAudio: async () => {
+      if (get().hasAudio) return;
+      const pid = get().project.id;
+      const stored = await getAudio(pid);
+      // Bail if nothing stored, or the project changed while we were reading.
+      if (!stored || get().project.id !== pid) return;
+      try {
+        const file = new File([stored.blob], stored.name, { type: stored.blob.type || 'audio/mpeg' });
+        const dur = await audioEngine.load(file);
+        if (get().project.id !== pid) {
+          audioEngine.dispose();
+          return;
+        }
+        set((s) => ({
+          hasAudio: true,
+          duration: dur > 0 ? dur : s.duration,
+          currentTime: 0,
+          project: { ...s.project, settings: { ...s.project.settings, audioName: stored.name } },
+        }));
+      } catch {
+        /* ignore — the stored blob failed to decode */
+      }
     },
 
     // --------------------------------------------------------------- Project
@@ -714,6 +963,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       set({
         project,
         selectedObjectId: null,
+        selectedObjectIds: [],
         selectedEventId: null,
         isPlaying: false,
         currentTime: 0,
@@ -738,6 +988,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         return;
       }
       get().replaceProject(project);
+      void get().restoreAudio();
       get().pushToast('success', tr('toast.loaded', { name: project.name }));
     },
 
@@ -757,6 +1008,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       set({
         project,
         selectedObjectId: null,
+        selectedObjectIds: [],
         selectedEventId: null,
         isPlaying: false,
         currentTime: 0,
@@ -790,7 +1042,7 @@ export const selectSelectedEvent = (s: ShowState): ShowEvent | null =>
  * explicit targets highlights every object its type can apply to).
  */
 export function isHighlighted(s: ShowState, id: string): boolean {
-  if (s.selectedObjectId) return s.selectedObjectId === id;
+  if (s.selectedObjectIds.length) return s.selectedObjectIds.includes(id);
   if (s.selectedEventId) {
     const ev = s.project.events.find((e) => e.id === s.selectedEventId);
     if (!ev) return false;
