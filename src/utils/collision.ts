@@ -21,7 +21,7 @@ const HALF_EXTENTS: Record<SceneObjectType, Vec3> = {
   led_screen: [4.75, 2.75, 0.25],
   dj_booth: [1.7, 0.8, 0.8],
   crowd_block: [12, 1, 4.8],
-  barrier: [0.6, 0.55, 0.35],
+  barrier: [0.6, 0.55, 0.5],
   foh_tower: [1.5, 1.3, 1.5],
   moving_head_spot: [0.28, 0.32, 0.28],
   moving_head_wash: [0.28, 0.32, 0.28],

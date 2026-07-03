@@ -169,7 +169,12 @@ export function StagePlatform({ object }: { object: SceneObject }) {
   );
 }
 
-/** Crowd safety barrier (Mojo-style): floor plate, leaning face, top rail. */
+/**
+ * Crowd safety barrier (Mojo-style). Convention: +Z faces the crowd. The crowd
+ * leans on the slightly back-leaning front face and top rail, standing on the
+ * ground plate (their weight anchors it); the diagonal support legs and kick
+ * rail are on the -Z stage side, where security stands.
+ */
 export function Barrier({ object }: { object: SceneObject }) {
   const steel = useMemo(
     () => new THREE.MeshStandardMaterial({ color: object.color, metalness: 0.75, roughness: 0.35 }),
@@ -178,30 +183,28 @@ export function Barrier({ object }: { object: SceneObject }) {
   useEffect(() => () => steel.dispose(), [steel]);
   return (
     <group>
-      {/* Floor plate (extends toward the crowd side, +Z) */}
-      <mesh position={[0, -0.53, 0.16]} material={steel}>
-        <boxGeometry args={[1.2, 0.03, 0.7]} />
+      {/* Front face — leans slightly back; the crowd (+Z) pushes against it */}
+      <mesh position={[0, 0, 0.16]} rotation={[-0.12, 0, 0]} material={steel}>
+        <boxGeometry args={[1.2, 1.0, 0.04]} />
       </mesh>
-      {/* Leaning front face */}
-      <group position={[0, 0, -0.12]} rotation={[0.14, 0, 0]}>
-        <mesh material={steel}>
-          <boxGeometry args={[1.2, 1.04, 0.035]} />
-        </mesh>
-        {/* Kick step for security staff */}
-        <mesh position={[0, -0.32, -0.12]} material={steel}>
-          <boxGeometry args={[1.2, 0.04, 0.22]} />
-        </mesh>
-      </group>
-      {/* Rounded top rail */}
-      <mesh position={[0, 0.53, -0.19]} rotation={[0, 0, Math.PI / 2]} material={steel}>
+      {/* Rounded top rail along the front edge (arms rest here) */}
+      <mesh position={[0, 0.49, 0.1]} rotation={[0, 0, Math.PI / 2]} material={steel}>
         <cylinderGeometry args={[0.035, 0.035, 1.2, 10]} />
       </mesh>
-      {/* Rear support struts */}
-      {[-0.45, 0.45].map((x) => (
-        <mesh key={x} position={[x, -0.05, 0.18]} rotation={[0.62, 0, 0]} material={steel}>
-          <boxGeometry args={[0.04, 1.05, 0.04]} />
+      {/* Ground plate under the crowd's feet (+Z) — weight anchors the barrier */}
+      <mesh position={[0, -0.53, 0.46]} material={steel}>
+        <boxGeometry args={[1.2, 0.03, 0.62]} />
+      </mesh>
+      {/* Diagonal support legs on the stage side (-Z) */}
+      {[-0.5, 0.5].map((x) => (
+        <mesh key={x} position={[x, -0.09, -0.2]} rotation={[0.6, 0, 0]} material={steel}>
+          <boxGeometry args={[0.04, 1.04, 0.04]} />
         </mesh>
       ))}
+      {/* Kick rail linking the legs at the back */}
+      <mesh position={[0, -0.5, -0.36]} rotation={[0, 0, Math.PI / 2]} material={steel}>
+        <cylinderGeometry args={[0.025, 0.025, 1.06, 8]} />
+      </mesh>
     </group>
   );
 }
