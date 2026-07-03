@@ -5,6 +5,7 @@ import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { deleteAudio, getAudio, putAudio } from '../utils/audioStore';
 import { hypeMeter } from '../utils/hype';
+import { sfx } from '../utils/sfx';
 import { resolvePlacement, type PlacementSettings } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
 import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
@@ -65,6 +66,8 @@ interface ShowState {
   magnet: boolean;
   /** Bright neutral "work light" so the whole scene is visible while building. */
   workLight: boolean;
+  /** Procedural FX / crowd sound effects on/off. */
+  sound: boolean;
   /** Active transform gizmo mode. */
   gizmoMode: 'translate' | 'rotate';
   /** Render quality: 'high' enables reflections / shadows, 'low' keeps it light. */
@@ -120,6 +123,7 @@ interface ShowState {
   setGridSize: (size: number) => void;
   toggleMagnet: () => void;
   toggleWorkLight: () => void;
+  toggleSound: () => void;
 
   // ---- Placement / editor ---------------------------------------------
   setPlacementType: (type: SceneObjectType | null) => void;
@@ -220,6 +224,7 @@ interface BuildPrefs {
   gridSize: number;
   magnet: boolean;
   workLight: boolean;
+  sound: boolean;
 }
 
 const BUILD_DEFAULTS: BuildPrefs = {
@@ -230,6 +235,7 @@ const BUILD_DEFAULTS: BuildPrefs = {
   gridSize: 1,
   magnet: true,
   workLight: false,
+  sound: true,
 };
 
 const BUILD_KEY = 'showforge.build';
@@ -258,6 +264,7 @@ function saveBuildPrefs(p: BuildPrefs) {
 export const useShowStore = create<ShowState>((set, get) => {
   const startProject = initialProject();
   const buildPrefs = initialBuildPrefs();
+  sfx.enabled = buildPrefs.sound;
 
   // Snapshot the current build preferences to localStorage.
   const persistBuild = () => {
@@ -270,6 +277,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       gridSize: s.gridSize,
       magnet: s.magnet,
       workLight: s.workLight,
+      sound: s.sound,
     });
   };
 
@@ -326,6 +334,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     gridSize: buildPrefs.gridSize,
     magnet: buildPrefs.magnet,
     workLight: buildPrefs.workLight,
+    sound: buildPrefs.sound,
     gizmoMode: 'translate',
     quality: 'high',
     language: initialLanguage(),
@@ -704,6 +713,13 @@ export const useShowStore = create<ShowState>((set, get) => {
       set((s) => ({ workLight: !s.workLight }));
       persistBuild();
     },
+    toggleSound: () => {
+      const next = !get().sound;
+      sfx.enabled = next;
+      if (next) sfx.resume();
+      set({ sound: next });
+      persistBuild();
+    },
 
     // ------------------------------------------------------------ Placement
     setPlacementType: (type) =>
@@ -1046,6 +1062,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         hypeMeter.reset();
         set({ showResult: null });
       }
+      if (get().sound) sfx.resume(); // unlock FX audio on this play gesture
       if (s.hasAudio) void audioEngine.play();
       set({ isPlaying: true });
     },

@@ -2,6 +2,8 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
+import { useShowStore } from '../../store/useShowStore';
+import { sfx } from '../../utils/sfx';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor } from './particles';
 import { ignoreRaycast } from './interaction';
@@ -97,6 +99,7 @@ export function FlameEffect({ object }: { object: SceneObject }) {
   const groupRef = useRef<THREE.Group>(null);
   const lightRef = useRef<THREE.PointLight>(null);
   const worldPos = useRef(new THREE.Vector3());
+  const fired = useRef(false);
 
   const flameMat = useMemo(
     () =>
@@ -125,6 +128,10 @@ export function FlameEffect({ object }: { object: SceneObject }) {
   useFrame(({ clock, camera }) => {
     const burst = burstFor(showRef.current.bursts.flame, object.id);
     const env = burst ? burst.env * burst.intensity : 0;
+    if (env > 0.05 && !fired.current && useShowStore.getState().isPlaying) {
+      sfx.flame();
+      fired.current = true;
+    } else if (env < 0.02) fired.current = false;
     const t = clock.elapsedTime;
     const prog = burst ? burst.progress : 0;
     flameMat.uniforms.uTime.value = t;

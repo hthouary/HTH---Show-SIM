@@ -120,6 +120,9 @@ A switch in the top bar flips between the two ways you work on a show:
   The crowd reacts to it (bigger jumps, brighter phones), and when the show
   finishes you get a **star rating** — turning "programming a show" into a game
   with a score.
+- **Procedural sound** — FX have voices (CO2 hiss, flame woomph, confetti
+  flutter) and the **crowd roars when the hype spikes** on a drop. All
+  synthesised in Web Audio (no asset files); toggle it with the Sound button.
 - **Object library** — 20 object types across Stage / Lights / FX, one click to
   add to the scene, including **vertical structures** (truss towers, arches),
   **crowd barriers** and a **front-of-house mix tower**.

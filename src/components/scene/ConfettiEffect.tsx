@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject } from '../../types/show';
+import { useShowStore } from '../../store/useShowStore';
+import { sfx } from '../../utils/sfx';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor } from './particles';
 import { ignoreRaycast } from './interaction';
@@ -27,6 +29,7 @@ export function ConfettiEffect({ object }: { object: SceneObject }) {
   const showRef = useShowStateRef();
   const ref = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
+  const fired = useRef(false);
 
   const data = useMemo(
     () =>
@@ -60,6 +63,11 @@ export function ConfettiEffect({ object }: { object: SceneObject }) {
 
   useFrame(({ clock }) => {
     const burst = burstFor(showRef.current.bursts.confetti, object.id);
+    const env = burst ? burst.env * (burst.intensity ?? 1) : 0;
+    if (env > 0.05 && !fired.current && useShowStore.getState().isPlaying) {
+      sfx.confetti();
+      fired.current = true;
+    } else if (env < 0.02) fired.current = false;
     const active = !!burst && burst.progress < 1 && (burst.intensity ?? 0) > 0.001;
     if (!ref.current) return;
     ref.current.visible = active;

@@ -155,6 +155,8 @@ function ViewportOverlay({
   const objectCount = useShowStore((s) => s.project.objects.length);
   const workLight = useShowStore((s) => s.workLight);
   const toggleWorkLight = useShowStore((s) => s.toggleWorkLight);
+  const sound = useShowStore((s) => s.sound);
+  const toggleSound = useShowStore((s) => s.toggleSound);
   const quality = useShowStore((s) => s.quality);
   const toggleQuality = useShowStore((s) => s.toggleQuality);
   const placementType = useShowStore((s) => s.placementType);
@@ -194,6 +196,13 @@ function ViewportOverlay({
       {/* Top-right view toggles (wrap on narrow screens so they stay on-screen) */}
       <div className="absolute right-3 top-3 flex max-w-[70vw] flex-wrap items-center justify-end gap-2 md:max-w-none md:flex-nowrap">
         <SkyControls />
+        <ToggleButton
+          active={sound}
+          onClick={toggleSound}
+          icon="speaker"
+          label={t('toggle.sound')}
+          title={t('toggle.sound.title')}
+        />
         <ToggleButton
           active={workLight}
           onClick={toggleWorkLight}

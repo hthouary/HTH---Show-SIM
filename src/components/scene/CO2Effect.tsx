@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { SceneObject } from '../../types/show';
+import { useShowStore } from '../../store/useShowStore';
+import { sfx } from '../../utils/sfx';
 import { useShowStateRef } from './ShowStateContext';
 import { burstFor, disposeParticles, makeParticles } from './particles';
 import { getSmokeTexture } from './textures';
@@ -28,10 +30,16 @@ export function CO2Effect({ object }: { object: SceneObject }) {
   }, [tex]);
 
   useEffect(() => () => disposeParticles(sys), [sys]);
+  const fired = useRef(false);
 
   useFrame(({ clock }) => {
     const burst = burstFor(showRef.current.bursts.co2, object.id);
     const env = burst ? burst.env * burst.intensity : 0;
+    // One-shot SFX on the burst onset (while playing).
+    if (env > 0.05 && !fired.current && useShowStore.getState().isPlaying) {
+      sfx.co2();
+      fired.current = true;
+    } else if (env < 0.02) fired.current = false;
     sys.material.visible = env > 0.001;
     if (!sys.material.visible) return;
     const t = clock.elapsedTime;

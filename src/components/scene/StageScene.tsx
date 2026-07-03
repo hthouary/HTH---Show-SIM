@@ -7,6 +7,7 @@ import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { evaluateEvents } from '../../utils/events';
 import { audioEngine } from '../../utils/audio';
 import { computeHype, hypeMeter } from '../../utils/hype';
+import { sfx } from '../../utils/sfx';
 import { getConcreteTexture } from './textures';
 import { ShowStateContext, type ShowStateRef } from './ShowStateContext';
 import { SkyEnvironment } from './SkyEnvironment';
@@ -37,6 +38,7 @@ export function StageScene() {
 
   const showRef = useRef(evaluateEvents(events, 0)) as ShowStateRef;
   const flashRef = useRef<THREE.PointLight>(null);
+  const cheerArmed = useRef(true);
 
   useFrame((_, delta) => {
     const store = useShowStore.getState();
@@ -54,6 +56,15 @@ export function StageScene() {
 
     // Live crowd hype (feeds the meter, the crowd reaction and the final score).
     hypeMeter.update(computeHype(state, audioEngine.level), Math.min(delta, 0.05), store.isPlaying);
+
+    // Crowd roars when the energy surges past a threshold (a drop landing).
+    const h = hypeMeter.value;
+    if (store.isPlaying && h > 0.6 && cheerArmed.current) {
+      sfx.cheer(h);
+      cheerArmed.current = false;
+    } else if (h < 0.42) {
+      cheerArmed.current = true;
+    }
   });
 
   return (
