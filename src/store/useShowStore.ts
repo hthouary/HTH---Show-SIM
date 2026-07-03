@@ -4,6 +4,7 @@ import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmi
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
 import { deleteAudio, getAudio, putAudio } from '../utils/audioStore';
+import { hypeMeter } from '../utils/hype';
 import { resolvePlacement, type PlacementSettings } from '../utils/collision';
 import { snapToGrid } from '../utils/beat';
 import { firstFreeStart, placeOnLane, resizeEvent as resizeEventTimes } from '../utils/timeline';
@@ -165,6 +166,11 @@ interface ShowState {
   seek: (time: number) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
+  /** Called when playback reaches the end: pauses + posts the crowd rating. */
+  finishShow: () => void;
+  /** Crowd rating from the last completed run (null = no card shown). */
+  showResult: { score: number; peak: number } | null;
+  clearShowResult: () => void;
 
   // ---- Audio actions --------------------------------------------------
   loadAudioFile: (file: File) => Promise<void>;
@@ -311,6 +317,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     hasAudio: false,
     toasts: [],
     clipboard: [],
+    showResult: null,
     appMode: buildPrefs.appMode,
     placementType: null,
     collisions: buildPrefs.collisions,
@@ -1034,6 +1041,11 @@ export const useShowStore = create<ShowState>((set, get) => {
     play: () => {
       const s = get();
       if (s.currentTime >= s.duration) s.seek(0);
+      // Starting from the top begins a fresh scored run.
+      if (get().currentTime <= 0.05) {
+        hypeMeter.reset();
+        set({ showResult: null });
+      }
       if (s.hasAudio) void audioEngine.play();
       set({ isPlaying: true });
     },
@@ -1057,6 +1069,13 @@ export const useShowStore = create<ShowState>((set, get) => {
       if (get().currentTime !== time) set({ currentTime: time });
     },
     setDuration: (duration) => set({ duration: Math.max(1, duration) }),
+
+    finishShow: () => {
+      if (get().hasAudio) audioEngine.pause();
+      const result = hypeMeter.scored ? { score: hypeMeter.average, peak: hypeMeter.peak } : null;
+      set(result ? { isPlaying: false, showResult: result } : { isPlaying: false });
+    },
+    clearShowResult: () => set({ showResult: null }),
 
     // ----------------------------------------------------------------- Audio
     loadAudioFile: async (file) => {

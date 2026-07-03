@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SceneObject } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { audioEngine } from '../../utils/audio';
+import { hypeMeter } from '../../utils/hype';
 import { getDeckTexture, getGrillTexture } from './textures';
 import { ignoreRaycast } from './interaction';
 
@@ -439,12 +440,13 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     const st = useShowStore.getState();
     const playing = st.isPlaying;
     const level = audioEngine.level;
-    // Phones read at night; almost invisible in daylight (like reality).
+    const hype = hypeMeter.value;
+    // Phones read at night; almost invisible in daylight (and blaze when hyped).
     const hour = st.project.settings.timeOfDay ?? 13;
     const day = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
-    phoneMat.opacity = 0.22 + (1 - day) * 0.78;
-    // Idle sway; the pit jumps when the show is playing (more with the music).
-    const amp = 0.045 + (playing ? 0.11 + level * 0.22 : 0);
+    phoneMat.opacity = Math.min(1, (0.22 + (1 - day) * 0.78) * (0.5 + hype * 0.75));
+    // Idle sway; the pit jumps to the show — more the higher the hype.
+    const amp = 0.045 + (playing ? 0.05 + hype * 0.2 + level * 0.12 : 0);
 
     let ai = 0;
     let pi = 0;
@@ -472,7 +474,7 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
       // Raised arm (+ phone at its tip)
       if (p.armUp && armRef.current) {
         const shoulderY = p.h * 0.72 + bob;
-        const theta = p.side * (0.32 + Math.sin(t * 1.15 + p.phase) * 0.13);
+        const theta = p.side * (0.32 + Math.sin(t * (1.15 + hype) + p.phase) * (0.13 + hype * 0.14));
         dummy.position.set(x + p.side * 0.2 * p.wide, shoulderY, p.z);
         dummy.rotation.set(0, 0, theta);
         dummy.scale.setScalar(1);

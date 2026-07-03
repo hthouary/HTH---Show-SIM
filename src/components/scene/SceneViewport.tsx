@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { StageScene } from './StageScene';
 import { useShowStore } from '../../store/useShowStore';
 import { Icon, type IconName } from '../ui/Icon';
+import { HypeMeter } from '../ui/HypeUI';
 import { useT } from '../../i18n/useT';
 
 function ToggleButton({
@@ -250,6 +251,7 @@ export function SceneViewport() {
   const selectObject = useShowStore((s) => s.selectObject);
   const placementType = useShowStore((s) => s.placementType);
   const cancelPlacement = useShowStore((s) => s.cancelPlacement);
+  const appMode = useShowStore((s) => s.appMode);
   // Bloom defaults OFF: it flickers on some Windows/Chrome GPU+driver combos.
   // The scene glows via additive materials on its own; users can enable it.
   const [bloom, setBloom] = useState(false);
@@ -318,6 +320,7 @@ export function SceneViewport() {
         )}
       </Canvas>
       <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
+      {appMode === 'show' && <HypeMeter />}
     </div>
   );
 }

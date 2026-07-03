@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { useShowStore } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE } from '../../data/catalog';
 import { evaluateEvents } from '../../utils/events';
+import { audioEngine } from '../../utils/audio';
+import { computeHype, hypeMeter } from '../../utils/hype';
 import { getConcreteTexture } from './textures';
 import { ShowStateContext, type ShowStateRef } from './ShowStateContext';
 import { SkyEnvironment } from './SkyEnvironment';
@@ -36,8 +38,9 @@ export function StageScene() {
   const showRef = useRef(evaluateEvents(events, 0)) as ShowStateRef;
   const flashRef = useRef<THREE.PointLight>(null);
 
-  useFrame(() => {
-    const t = useShowStore.getState().currentTime;
+  useFrame((_, delta) => {
+    const store = useShowStore.getState();
+    const t = store.currentTime;
     const state = evaluateEvents(events, t);
     showRef.current = state;
 
@@ -48,6 +51,9 @@ export function StageScene() {
       flashRef.current.intensity = strobing * 2.4 * black;
       flashRef.current.color.setRGB(state.light.color[0], state.light.color[1], state.light.color[2]);
     }
+
+    // Live crowd hype (feeds the meter, the crowd reaction and the final score).
+    hypeMeter.update(computeHype(state, audioEngine.level), Math.min(delta, 0.05), store.isPlaying);
   });
 
   return (

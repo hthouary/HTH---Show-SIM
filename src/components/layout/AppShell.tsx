@@ -7,6 +7,7 @@ import { SceneViewport } from '../scene/SceneViewport';
 import { TimelinePanel } from '../timeline/TimelinePanel';
 import { MobileShell } from './MobileShell';
 import { Toasts } from '../ui/Toasts';
+import { ShowResultCard } from '../ui/HypeUI';
 import { usePlaybackClock } from '../../utils/usePlaybackClock';
 import { useIsMobile } from '../../utils/useIsMobile';
 import { useShowStore } from '../../store/useShowStore';
@@ -127,6 +128,7 @@ export function AppShell() {
     <>
       {isMobile ? <MobileShell /> : <DesktopShell />}
       <Toasts />
+      <ShowResultCard />
     </>
   );
 }

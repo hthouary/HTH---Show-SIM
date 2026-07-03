@@ -115,6 +115,11 @@ A switch in the top bar flips between the two ways you work on a show:
 - **Living crowd** — instanced people (torsos, heads, varied skin tones and
   clothing), a share of them holding up **glowing phone screens** that read at
   night; the pit sways idly and **jumps with the music** while the show plays.
+- **Crowd hype (the game loop)** — a live **hype meter** rises with well-timed,
+  synced moments (lasers + FX on a loud drop) and dips on blackouts / dead air.
+  The crowd reacts to it (bigger jumps, brighter phones), and when the show
+  finishes you get a **star rating** — turning "programming a show" into a game
+  with a score.
 - **Object library** — 20 object types across Stage / Lights / FX, one click to
   add to the scene, including **vertical structures** (truss towers, arches),
   **crowd barriers** and a **front-of-house mix tower**.

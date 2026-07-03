@@ -32,9 +32,9 @@ export function usePlaybackClock() {
         }
 
         if (next >= s.duration) {
-          // Reached the end: stop on the last frame.
+          // Reached the end: stop on the last frame + post the crowd rating.
           s.setCurrentTime(s.duration);
-          s.pause();
+          s.finishShow();
         } else {
           s.setCurrentTime(next);
         }
