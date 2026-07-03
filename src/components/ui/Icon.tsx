@@ -43,7 +43,8 @@ export type IconName =
   | 'menu'
   | 'brush'
   | 'sun'
-  | 'moon';
+  | 'moon'
+  | 'fence';
 
 const PATHS: Record<IconName, JSX.Element> = {
   play: <path d="M6 4l14 8-14 8z" />,
@@ -259,6 +260,12 @@ const PATHS: Record<IconName, JSX.Element> = {
     </>
   ),
   moon: <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />,
+  fence: (
+    <>
+      <path d="M5 20V8l2-3 2 3v12M15 20V8l2-3 2 3v12" />
+      <path d="M3 12h18M3 17h18" />
+    </>
+  ),
 };
 
 interface IconProps {

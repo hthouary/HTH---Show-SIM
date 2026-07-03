@@ -13,6 +13,8 @@ export const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
   led_screen: 'monitor',
   dj_booth: 'box',
   crowd_block: 'crowd',
+  barrier: 'fence',
+  foh_tower: 'target',
   moving_head_spot: 'lightbulb',
   moving_head_wash: 'lightbulb',
   beam_light: 'bolt',

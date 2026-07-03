@@ -16,6 +16,8 @@ export type SceneObjectType =
   | 'led_screen'
   | 'dj_booth'
   | 'crowd_block'
+  | 'barrier'
+  | 'foh_tower'
   // Lights
   | 'moving_head_spot'
   | 'moving_head_wash'

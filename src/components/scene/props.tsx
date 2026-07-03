@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SceneObject } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { audioEngine } from '../../utils/audio';
+import { getDeckTexture, getGrillTexture } from './textures';
 import { ignoreRaycast } from './interaction';
 
 /**
@@ -140,18 +141,19 @@ export function TrussArch({ object }: { object: SceneObject }) {
   );
 }
 
-/** Raised stage deck with skirt and a glowing edge strip. */
+/** Raised stage deck with a plywood anti-slip top, skirt and edge strip. */
 export function StagePlatform({ object }: { object: SceneObject }) {
+  const deck = useMemo(() => getDeckTexture(), []);
   return (
     <group>
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[14, 0.5, 8]} />
         <meshStandardMaterial color={object.color} metalness={0.25} roughness={0.75} />
       </mesh>
-      {/* Matte deck surface */}
-      <mesh position={[0, 0.26, 0]}>
-        <boxGeometry args={[14, 0.04, 8]} />
-        <meshStandardMaterial color="#0c0e14" metalness={0.1} roughness={0.95} />
+      {/* Textured deck surface (phenolic plywood panels) */}
+      <mesh position={[0, 0.265, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[14, 8]} />
+        <meshStandardMaterial map={deck} color="#ffffff" metalness={0.05} roughness={0.92} />
       </mesh>
       {/* Dark skirt band around the base */}
       <mesh position={[0, -0.18, 0]}>
@@ -167,14 +169,111 @@ export function StagePlatform({ object }: { object: SceneObject }) {
   );
 }
 
-/** Flown PA line-array: stacked cabinets with a slight downward splay. */
+/** Crowd safety barrier (Mojo-style): floor plate, leaning face, top rail. */
+export function Barrier({ object }: { object: SceneObject }) {
+  const steel = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: object.color, metalness: 0.75, roughness: 0.35 }),
+    [object.color],
+  );
+  useEffect(() => () => steel.dispose(), [steel]);
+  return (
+    <group>
+      {/* Floor plate (extends toward the crowd side, +Z) */}
+      <mesh position={[0, -0.53, 0.16]} material={steel}>
+        <boxGeometry args={[1.2, 0.03, 0.7]} />
+      </mesh>
+      {/* Leaning front face */}
+      <group position={[0, 0, -0.12]} rotation={[0.14, 0, 0]}>
+        <mesh material={steel}>
+          <boxGeometry args={[1.2, 1.04, 0.035]} />
+        </mesh>
+        {/* Kick step for security staff */}
+        <mesh position={[0, -0.32, -0.12]} material={steel}>
+          <boxGeometry args={[1.2, 0.04, 0.22]} />
+        </mesh>
+      </group>
+      {/* Rounded top rail */}
+      <mesh position={[0, 0.53, -0.19]} rotation={[0, 0, Math.PI / 2]} material={steel}>
+        <cylinderGeometry args={[0.035, 0.035, 1.2, 10]} />
+      </mesh>
+      {/* Rear support struts */}
+      {[-0.45, 0.45].map((x) => (
+        <mesh key={x} position={[x, -0.05, 0.18]} rotation={[0.62, 0, 0]} material={steel}>
+          <boxGeometry args={[0.04, 1.05, 0.04]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Front-of-house mix tower: scaffold frame, desk with glowing screens, roof. */
+export function FohTower({ object }: { object: SceneObject }) {
+  const scaffold = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: object.color, metalness: 0.8, roughness: 0.4 }),
+    [object.color],
+  );
+  useEffect(() => () => scaffold.dispose(), [scaffold]);
+  const W = 1.4; // half width
+  const H = 1.3; // half height
+  return (
+    <group>
+      {/* Corner posts */}
+      {[-W, W].map((x) =>
+        [-W, W].map((z) => (
+          <mesh key={`${x}_${z}`} position={[x, 0, z]} material={scaffold}>
+            <boxGeometry args={[0.09, H * 2, 0.09]} />
+          </mesh>
+        )),
+      )}
+      {/* Horizontal rails (two levels, both axes) */}
+      {[-H + 0.5, H - 0.25].map((y) => (
+        <group key={y}>
+          {[-W, W].map((z) => (
+            <mesh key={`x${z}`} position={[0, y, z]} material={scaffold}>
+              <boxGeometry args={[W * 2, 0.06, 0.06]} />
+            </mesh>
+          ))}
+          {[-W, W].map((x) => (
+            <mesh key={`z${x}`} position={[x, y, 0]} material={scaffold}>
+              <boxGeometry args={[0.06, 0.06, W * 2]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Roof tarp */}
+      <mesh position={[0, H + 0.06, 0]}>
+        <boxGeometry args={[W * 2 + 0.3, 0.08, W * 2 + 0.3]} />
+        <meshStandardMaterial color="#101318" roughness={0.9} metalness={0.1} />
+      </mesh>
+      {/* Mixing desk facing the stage (-Z) with a glowing console strip */}
+      <mesh position={[0, -H + 0.75, -W + 0.5]}>
+        <boxGeometry args={[1.9, 0.1, 0.8]} />
+        <meshStandardMaterial color="#15181f" metalness={0.5} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, -H + 0.82, -W + 0.5]} rotation={[-Math.PI / 2.6, 0, 0]}>
+        <planeGeometry args={[1.7, 0.35]} />
+        <meshStandardMaterial color="#22d3ee" emissive="#22d3ee" emissiveIntensity={0.5} toneMapped={false} />
+      </mesh>
+      {/* Rack case beside the desk */}
+      <mesh position={[1.0, -H + 0.45, -W + 0.55]}>
+        <boxGeometry args={[0.55, 0.9, 0.6]} />
+        <meshStandardMaterial color="#0c0e14" metalness={0.6} roughness={0.45} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Flown PA line-array: stacked cabinets with perforated grills, slight splay. */
 export function Speaker({ object }: { object: SceneObject }) {
   const cab = useMemo(() => new THREE.MeshStandardMaterial({ color: object.color, metalness: 0.35, roughness: 0.6 }), [object.color]);
-  const cone = useMemo(() => new THREE.MeshStandardMaterial({ color: '#05060a', metalness: 0.2, roughness: 0.5 }), []);
+  const grill = useMemo(
+    () => new THREE.MeshStandardMaterial({ map: getGrillTexture(), color: '#ffffff', metalness: 0.4, roughness: 0.55 }),
+    [],
+  );
   useEffect(() => () => {
     cab.dispose();
-    cone.dispose();
-  }, [cab, cone]);
+    grill.dispose();
+  }, [cab, grill]);
   return (
     <group>
       {/* Fly bar */}
@@ -189,16 +288,9 @@ export function Speaker({ object }: { object: SceneObject }) {
             <mesh material={cab}>
               <boxGeometry args={[1.25, 0.6, 0.95]} />
             </mesh>
-            {/* Twin drivers + horn slot on the front baffle */}
-            <mesh position={[-0.32, 0.06, 0.48]} material={cone}>
-              <circleGeometry args={[0.17, 20]} />
-            </mesh>
-            <mesh position={[0.32, 0.06, 0.48]} material={cone}>
-              <circleGeometry args={[0.17, 20]} />
-            </mesh>
-            <mesh position={[0, -0.18, 0.48]}>
-              <boxGeometry args={[0.95, 0.12, 0.02]} />
-              <meshStandardMaterial color="#111419" roughness={0.6} />
+            {/* Perforated grill face */}
+            <mesh position={[0, 0, 0.478]} material={grill}>
+              <planeGeometry args={[1.16, 0.52]} />
             </mesh>
           </group>
         );

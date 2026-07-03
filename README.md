@@ -115,13 +115,16 @@ A switch in the top bar flips between the two ways you work on a show:
 - **Living crowd** — instanced people (torsos, heads, varied skin tones and
   clothing), a share of them holding up **glowing phone screens** that read at
   night; the pit sways idly and **jumps with the music** while the show plays.
-- **Object library** — 18 object types across Stage / Lights / FX, one click to
-  add to the scene, including **vertical structures** (truss towers, arches).
+- **Object library** — 20 object types across Stage / Lights / FX, one click to
+  add to the scene, including **vertical structures** (truss towers, arches),
+  **crowd barriers** and a **front-of-house mix tower**.
 - **Realistic gear** — fixtures are modelled to read like real touring hardware:
   moving heads with a base, U-yoke and a tilting lit head; beam fixtures; LED
   strobe panels; 2×2 blinder lamp arrays; a laser projector with heat-sink fins
   and an aperture window; box-truss lattices (horizontal beams, vertical towers
-  and goalpost arches); flown PA line-arrays; and dedicated FX machine bodies
+  and goalpost arches); flown PA line-arrays with **perforated grills**; a stage
+  deck with an **anti-slip plywood texture**; Mojo-style **crowd barriers**; a
+  scaffold **FOH tower** with a glowing console; and dedicated FX machine bodies
   (hazer, flame canister, cryo bottle, confetti blower).
 - **Power tools** — Shift-click to multi-select; then align to the anchor,
   distribute evenly, duplicate, **array** (N copies along an offset) and

@@ -88,6 +88,24 @@ export const CATALOG: CatalogEntry[] = [
     emitsBeam: false,
     defaults: { color: '#0c0e14', scale: 1, position: [0, 0, 12], intensity: 0 },
   },
+  {
+    type: 'barrier',
+    label: 'Crowd Barrier',
+    category: 'stage',
+    hint: 'Safety rail',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#b8bec8', scale: 1, position: [0, 0.55, 5], intensity: 0 },
+  },
+  {
+    type: 'foh_tower',
+    label: 'FOH Tower',
+    category: 'stage',
+    hint: 'Mix position',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#9aa3b2', scale: 1, position: [0, 1.3, 20], intensity: 0 },
+  },
 
   // --------------------------------------------------------------- Lights
   {

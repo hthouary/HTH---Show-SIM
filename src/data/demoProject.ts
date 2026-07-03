@@ -28,6 +28,12 @@ export function createDemoProject(): Project {
   add(createSceneObject('speaker', { name: 'PA Left', position: [-7, 4.6, -1] }));
   add(createSceneObject('speaker', { name: 'PA Right', position: [7, 4.6, -1] }));
   add(createSceneObject('crowd_block', { name: 'Crowd', position: [0, 0, 10], scale: 1.15 }));
+  // Safety barrier line between the stage and the pit
+  for (let i = 0; i < 11; i++) {
+    const x = (i - 5) * 1.22;
+    add(createSceneObject('barrier', { name: `Barrier ${i + 1}`, position: [x, 0.55, 6.6] }));
+  }
+  add(createSceneObject('foh_tower', { name: 'FOH', position: [0, 1.3, 23] }));
 
   // ---- 8 moving heads on the front truss (4 spot + 4 wash) ---------------
   const headX = [-6, -3.6, -1.2, 1.2, 3.6, 6];
