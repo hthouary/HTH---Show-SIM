@@ -17,10 +17,69 @@ const BEAM_COUNT = 12;
 const MAX_CHAIN = 500; // custom laser chain cap
 
 /**
+ * A laser beam cylinder (0 at the source → -length far away) carrying a per-vertex
+ * `aT` (0..1 along its length) so a shader can fade it into the distance — real
+ * beams stay razor-thin and travel very far, dimming with atmospheric scatter.
+ */
+function beamCyl(rTop: number, rBot: number, length: number, seg: number): THREE.CylinderGeometry {
+  const g = new THREE.CylinderGeometry(rTop, rBot, length, seg, 1, true);
+  g.translate(0, -length / 2, 0);
+  const pos = g.attributes.position;
+  const aT = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) aT[i] = Math.min(1, Math.max(0, -pos.getY(i) / length));
+  g.setAttribute('aT', new THREE.BufferAttribute(aT, 1));
+  return g;
+}
+
+const BEAM_VERT = /* glsl */ `
+  attribute float aT;
+  varying float vT;
+  void main() {
+    vT = aT;
+    vec4 mv = vec4(position, 1.0);
+    #ifdef USE_INSTANCING
+      mv = instanceMatrix * mv;
+    #endif
+    gl_Position = projectionMatrix * modelViewMatrix * mv;
+  }
+`;
+
+const BEAM_FRAG = /* glsl */ `
+  precision mediump float;
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uFadePow;
+  varying float vT;
+  void main() {
+    // Bright at the aperture, fading into the distance (never a hard end).
+    float fade = pow(1.0 - vT, uFadePow);
+    gl_FragColor = vec4(uColor, uOpacity * fade);
+  }
+`;
+
+/** Additive laser-beam material with a length fade (shared by fan + chain). */
+function makeBeamMat(fadePow: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color('#39ff14') },
+      uOpacity: { value: 0 },
+      uFadePow: { value: fadePow },
+    },
+    vertexShader: BEAM_VERT,
+    fragmentShader: BEAM_FRAG,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+  });
+}
+
+/**
  * A laser projector. Preset movements shape a fan of thin beams. The 'custom'
  * movement instead sends a *chain* of beams (1..500) one after another along a
  * hand-drawn path — controlled by count, spacing and speed — rendered with an
- * instanced mesh so hundreds of beams stay cheap.
+ * instanced mesh so hundreds of beams stay cheap. Beams throw a long way and
+ * fade into the atmosphere, like real lasers cutting through haze.
  */
 export function LaserFixture({ object }: { object: SceneObject }) {
   const showRef = useShowStateRef();
@@ -36,32 +95,37 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       object.target[2] - object.position[2],
     );
     const dist = Math.max(rel.length(), 10);
-    const len = THREE.MathUtils.clamp(dist * 1.8, 24, 50); // long throw
+    // Long throw — beams travel far and dissolve into the air (shader fade).
+    const len = THREE.MathUtils.clamp(dist * 4, 90, 260);
     const dir = rel.clone().normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(UP_DOWN, dir);
 
-    const core = new THREE.CylinderGeometry(0.012, 0.022, len, 6, 1, true);
-    core.translate(0, -len / 2, 0);
-    const glow = new THREE.CylinderGeometry(0.06, 0.11, len, 8, 1, true);
-    glow.translate(0, -len / 2, 0);
+    const core = beamCyl(0.014, 0.03, len, 6);
+    const glow = beamCyl(0.05, 0.12, len, 8);
 
     // Unit-length beams (0 → -1 along Y) for the custom chain, scaled per beam
     // so each tip lands exactly on the drawn point (variable throw).
-    const coreU = new THREE.CylinderGeometry(0.02, 0.02, 1, 6, 1, true);
-    coreU.translate(0, -0.5, 0);
-    const glowU = new THREE.CylinderGeometry(0.08, 0.08, 1, 8, 1, true);
-    glowU.translate(0, -0.5, 0);
+    const coreU = beamCyl(0.02, 0.02, 1, 6);
+    const glowU = beamCyl(0.08, 0.08, 1, 8);
 
-    const mkMat = (opacity: number) =>
-      new THREE.MeshBasicMaterial({
-        color: '#39ff14',
-        transparent: true,
-        opacity,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-    return { baseQuat: q, coreGeo: core, glowGeo: glow, coreUnit: coreU, glowUnit: glowU, coreMat: mkMat(0), glowMat: mkMat(0), dotMat: mkMat(0.2) };
+    const dot = new THREE.MeshBasicMaterial({
+      color: '#39ff14',
+      transparent: true,
+      opacity: 0.2,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    return {
+      baseQuat: q,
+      coreGeo: core,
+      glowGeo: glow,
+      coreUnit: coreU,
+      glowUnit: glowU,
+      coreMat: makeBeamMat(1.1), // thin core fades slowly → travels far
+      glowMat: makeBeamMat(1.8), // halo scatters close, fades faster
+      dotMat: dot,
+    };
   }, [object.position, object.target]);
 
   useFrame(() => {
@@ -75,10 +139,10 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     const shimmer = playing ? 0.97 + Math.sin(state.time * 0.8) * 0.03 : 1;
     const isCustom = lm.pattern === 'custom';
 
-    coreMat.color.copy(tmpColor);
-    coreMat.opacity = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
-    glowMat.color.copy(tmpColor);
-    glowMat.opacity = on ? 0.32 * intensity * shimmer : 0;
+    coreMat.uniforms.uColor.value.copy(tmpColor);
+    coreMat.uniforms.uOpacity.value = on ? Math.min(1, 0.95 * intensity * shimmer) : 0;
+    glowMat.uniforms.uColor.value.copy(tmpColor);
+    glowMat.uniforms.uOpacity.value = on ? 0.32 * intensity * shimmer : 0;
     dotMat.color.copy(tmpColor);
     dotMat.opacity = on ? 1 : 0.12;
 
@@ -158,13 +222,14 @@ export function LaserFixture({ object }: { object: SceneObject }) {
         <circleGeometry args={[0.055, 18]} />
       </mesh>
 
-      {/* Preset fan — aimed at the target (not selectable). */}
+      {/* Preset fan — aimed at the target (not selectable). Long beams are kept
+          from being frustum-culled by their own (rotating) bounds. */}
       <group quaternion={baseQuat}>
         <group ref={moveRef}>
           {Array.from({ length: BEAM_COUNT }).map((_, i) => (
             <group key={i} ref={(el) => (beamRefs.current[i] = el)}>
-              <mesh geometry={glowGeo} material={glowMat} raycast={ignoreRaycast} />
-              <mesh geometry={coreGeo} material={coreMat} raycast={ignoreRaycast} />
+              <mesh geometry={glowGeo} material={glowMat} raycast={ignoreRaycast} frustumCulled={false} />
+              <mesh geometry={coreGeo} material={coreMat} raycast={ignoreRaycast} frustumCulled={false} />
             </group>
           ))}
         </group>
