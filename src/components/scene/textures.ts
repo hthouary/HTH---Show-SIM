@@ -180,6 +180,35 @@ export function getGrillTexture(): THREE.Texture {
   return tex;
 }
 
+const bannerCache = new Map<string, THREE.Texture>();
+
+/** Printed banner texture (bold centred text) — for bar / food-stall signs. */
+export function getBannerTexture(text: string, fg: string, bg: string): THREE.Texture {
+  const key = `${text}|${fg}|${bg}`;
+  const hit = bannerCache.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 80;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 256, 80);
+  // Thin frame line like a printed PVC banner
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(6, 6, 244, 68);
+  ctx.fillStyle = fg;
+  ctx.font = '700 44px system-ui, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 43);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  bannerCache.set(key, tex);
+  return tex;
+}
+
 /** Smooth round glow (white core → transparent) for flame / CO2 / cryo. */
 export function getGlowTexture(): THREE.Texture {
   if (glowTex) return glowTex;

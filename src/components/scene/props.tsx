@@ -6,7 +6,7 @@ import type { SceneObject } from '../../types/show';
 import { useShowStore } from '../../store/useShowStore';
 import { audioEngine } from '../../utils/audio';
 import { hypeMeter } from '../../utils/hype';
-import { getDeckTexture, getGrillTexture } from './textures';
+import { getBannerTexture, getDeckTexture, getGrillTexture } from './textures';
 import { ignoreRaycast } from './interaction';
 
 /**
@@ -349,6 +349,9 @@ const CROWD_TOTAL = CROWD_COLS * CROWD_ROWS;
 const CLOTHES = ['#22242c', '#2b2e38', '#3a2e2e', '#26323a', '#332b3d', '#1f2a24', '#3d3d46', '#402f26', '#2e2431', '#24303c'];
 const SKIN = ['#c9976f', '#a97c53', '#8a5f3d', '#6b452c', '#e0b48f', '#553524'];
 
+/** Trouser tones — jeans, blacks, khakis. */
+const PANTS = ['#33404f', '#2a3542', '#23262c', '#3d3a33', '#40484f', '#1f232a'];
+
 interface Person {
   x: number;
   z: number;
@@ -358,6 +361,7 @@ interface Person {
   wide: number;
   cloth: string;
   skin: string;
+  pants: string;
   armUp: boolean;
   side: 1 | -1;
   phone: boolean;
@@ -365,13 +369,16 @@ interface Person {
 }
 
 /**
- * Audience — instanced people (torso + head, a share of them with a raised arm
- * holding a glowing phone). They sway idly and jump to the music while the show
- * plays; phone screens only really read at night, like at a real gig.
+ * Audience — instanced people with real anatomy: two legs, a torso, two hanging
+ * arms, a head, and (for a share of them) a raised arm holding a glowing phone.
+ * All instanced (7 draw calls for ~360 people). They sway idly and jump to the
+ * show; phone screens only really read at night, like at a real gig.
  */
 export function CrowdBlock({ object }: { object: SceneObject }) {
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
+  const legRef = useRef<THREE.InstancedMesh>(null);
+  const armDownRef = useRef<THREE.InstancedMesh>(null);
   const armRef = useRef<THREE.InstancedMesh>(null);
   const phoneRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -380,15 +387,23 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     () => new THREE.MeshBasicMaterial({ color: '#cfe0ff', toneMapped: false, transparent: true, opacity: 1, side: THREE.DoubleSide }),
     [],
   );
+  // Raised arm pivots at the shoulder (points up); hanging arm pivots at the
+  // shoulder too (points down).
   const armGeo = useMemo(() => {
     const g = new THREE.CapsuleGeometry(0.042, 0.5, 3, 6);
-    g.translate(0, 0.29, 0); // pivot at the shoulder
+    g.translate(0, 0.29, 0);
+    return g;
+  }, []);
+  const armDownGeo = useMemo(() => {
+    const g = new THREE.CapsuleGeometry(0.045, 0.42, 3, 6);
+    g.translate(0, -0.26, 0);
     return g;
   }, []);
   useEffect(() => () => {
     phoneMat.dispose();
     armGeo.dispose();
-  }, [phoneMat, armGeo]);
+    armDownGeo.dispose();
+  }, [phoneMat, armGeo, armDownGeo]);
 
   const people = useMemo<Person[]>(() => {
     const arr: Person[] = [];
@@ -398,12 +413,13 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
         arr.push({
           x: (c - CROWD_COLS / 2) * 0.8 + (Math.random() - 0.5) * 0.45,
           z: r * 0.8 + (Math.random() - 0.5) * 0.4,
-          h: 1.45 + Math.random() * 0.35,
+          h: 1.55 + Math.random() * 0.3,
           phase: Math.random() * Math.PI * 2,
           energy: 0.35 + Math.random() * 0.65,
           wide: 0.88 + Math.random() * 0.28,
           cloth: CLOTHES[Math.floor(Math.random() * CLOTHES.length)],
           skin: SKIN[Math.floor(Math.random() * SKIN.length)],
+          pants: PANTS[Math.floor(Math.random() * PANTS.length)],
           armUp,
           side: Math.random() < 0.5 ? 1 : -1,
           phone: armUp && Math.random() < 0.7,
@@ -416,26 +432,31 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
   const arms = useMemo(() => people.filter((p) => p.armUp), [people]);
   const phones = useMemo(() => arms.filter((p) => p.phone), [arms]);
 
-  // Per-person clothing / skin colours (set once).
+  // Per-person clothing / skin / trouser colours (set once).
   useEffect(() => {
     const c = new THREE.Color();
     people.forEach((p, i) => {
       c.set(p.cloth);
       bodyRef.current?.setColorAt(i, c);
+      armDownRef.current?.setColorAt(i * 2, c);
+      armDownRef.current?.setColorAt(i * 2 + 1, c);
       c.set(p.skin);
       headRef.current?.setColorAt(i, c);
+      c.set(p.pants);
+      legRef.current?.setColorAt(i * 2, c);
+      legRef.current?.setColorAt(i * 2 + 1, c);
     });
     arms.forEach((p, i) => {
       c.set(p.cloth);
       armRef.current?.setColorAt(i, c);
     });
-    for (const ref of [bodyRef, headRef, armRef]) {
+    for (const ref of [bodyRef, headRef, legRef, armDownRef, armRef]) {
       if (ref.current?.instanceColor) ref.current.instanceColor.needsUpdate = true;
     }
   }, [people, arms]);
 
   useFrame(({ clock }) => {
-    if (!bodyRef.current || !headRef.current) return;
+    if (!bodyRef.current || !headRef.current || !legRef.current || !armDownRef.current) return;
     const t = clock.elapsedTime;
     const st = useShowStore.getState();
     const playing = st.isPlaying;
@@ -454,35 +475,62 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
       const p = people[i];
       const bob = Math.abs(Math.sin(t * 3.1 * p.energy + p.phase)) * amp * p.energy;
       const sway = Math.sin(t * 0.9 + p.phase) * 0.03;
-      const bodyH = p.h - 0.24;
       const x = p.x + sway;
+      const rotY = p.rotY * 0.06;
 
-      // Torso
-      dummy.rotation.set(0, p.rotY * 0.06, 0);
-      dummy.position.set(x, bodyH / 2 + bob, p.z);
-      dummy.scale.set(p.wide, bodyH / 1.28, p.wide);
+      // Human proportions from total height
+      const legLen = p.h * 0.47;
+      const torsoLen = p.h * 0.36;
+      const shoulderY = legLen + torsoLen * 0.9 + bob;
+      const hipOff = 0.085 * p.wide;
+
+      // Legs (jump with the body)
+      for (let s = 0; s < 2; s++) {
+        const lx = x + (s === 0 ? -hipOff : hipOff);
+        dummy.position.set(lx, legLen / 2 + bob, p.z);
+        dummy.rotation.set(0, rotY, 0);
+        dummy.scale.set(1, legLen / 0.73, 1);
+        dummy.updateMatrix();
+        legRef.current.setMatrixAt(i * 2 + s, dummy.matrix);
+      }
+
+      // Torso (sits on the legs)
+      dummy.position.set(x, legLen + torsoLen / 2 + bob, p.z);
+      dummy.rotation.set(0, rotY, 0);
+      dummy.scale.set(p.wide, torsoLen / 0.82, p.wide);
       dummy.updateMatrix();
       bodyRef.current.setMatrixAt(i, dummy.matrix);
 
       // Head
+      dummy.position.set(x, legLen + torsoLen + 0.1 + bob, p.z);
       dummy.rotation.set(0, 0, 0);
-      dummy.position.set(x, bodyH + 0.12 + bob, p.z);
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
       headRef.current.setMatrixAt(i, dummy.matrix);
 
+      // Hanging arms at the sides (skip the side that's raised)
+      for (let s = 0; s < 2; s++) {
+        const sideSign = s === 0 ? -1 : 1;
+        const hidden = p.armUp && sideSign === p.side;
+        const ax = x + sideSign * (0.17 * p.wide + 0.055);
+        dummy.position.set(ax, shoulderY, p.z);
+        dummy.rotation.set(Math.sin(t * 0.9 + p.phase) * 0.06, 0, sideSign * 0.12);
+        dummy.scale.setScalar(hidden ? 0.001 : 1);
+        dummy.updateMatrix();
+        armDownRef.current.setMatrixAt(i * 2 + s, dummy.matrix);
+      }
+
       // Raised arm (+ phone at its tip)
       if (p.armUp && armRef.current) {
-        const shoulderY = p.h * 0.72 + bob;
         const theta = p.side * (0.32 + Math.sin(t * (1.15 + hype) + p.phase) * (0.13 + hype * 0.14));
-        dummy.position.set(x + p.side * 0.2 * p.wide, shoulderY, p.z);
+        dummy.position.set(x + p.side * 0.19 * p.wide, shoulderY, p.z);
         dummy.rotation.set(0, 0, theta);
         dummy.scale.setScalar(1);
         dummy.updateMatrix();
         armRef.current.setMatrixAt(ai, dummy.matrix);
         ai++;
         if (p.phone && phoneRef.current) {
-          dummy.position.set(x + p.side * 0.2 * p.wide - Math.sin(theta) * 0.62, shoulderY + Math.cos(theta) * 0.62, p.z);
+          dummy.position.set(x + p.side * 0.19 * p.wide - Math.sin(theta) * 0.62, shoulderY + Math.cos(theta) * 0.62, p.z);
           dummy.rotation.set(0, p.rotY, theta);
           dummy.updateMatrix();
           phoneRef.current.setMatrixAt(pi, dummy.matrix);
@@ -492,6 +540,8 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     }
     bodyRef.current.instanceMatrix.needsUpdate = true;
     headRef.current.instanceMatrix.needsUpdate = true;
+    legRef.current.instanceMatrix.needsUpdate = true;
+    armDownRef.current.instanceMatrix.needsUpdate = true;
     if (armRef.current) armRef.current.instanceMatrix.needsUpdate = true;
     if (phoneRef.current) phoneRef.current.instanceMatrix.needsUpdate = true;
   });
@@ -500,12 +550,21 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     <group>
       {/* Torsos — the clickable body of the crowd. */}
       <instancedMesh ref={bodyRef} args={[undefined, undefined, CROWD_TOTAL]} frustumCulled={false} castShadow>
-        <capsuleGeometry args={[0.21, 0.86, 4, 8]} />
+        <capsuleGeometry args={[0.165, 0.5, 4, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.92} metalness={0} />
       </instancedMesh>
       <instancedMesh ref={headRef} args={[undefined, undefined, CROWD_TOTAL]} frustumCulled={false} raycast={ignoreRaycast}>
-        <sphereGeometry args={[0.105, 10, 8]} />
+        <sphereGeometry args={[0.1, 10, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.85} metalness={0} />
+      </instancedMesh>
+      {/* Legs (2 per person) */}
+      <instancedMesh ref={legRef} args={[undefined, undefined, CROWD_TOTAL * 2]} frustumCulled={false} raycast={ignoreRaycast}>
+        <capsuleGeometry args={[0.062, 0.6, 3, 6]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.95} metalness={0} />
+      </instancedMesh>
+      {/* Hanging arms (2 per person, one hidden when raised) */}
+      <instancedMesh ref={armDownRef} args={[armDownGeo, undefined, CROWD_TOTAL * 2]} frustumCulled={false} raycast={ignoreRaycast}>
+        <meshStandardMaterial color="#ffffff" roughness={0.92} metalness={0} />
       </instancedMesh>
       <instancedMesh ref={armRef} args={[armGeo, undefined, arms.length]} frustumCulled={false} raycast={ignoreRaycast}>
         <meshStandardMaterial color="#ffffff" roughness={0.92} metalness={0} />
@@ -662,134 +721,207 @@ function seed01(object: SceneObject, salt = 0): number {
   return s - Math.floor(s);
 }
 
-const FOLIAGE = ['#2c5527', '#356831', '#24491f', '#3c7034', '#2f5d2a'];
+/** Muted, natural greens (real foliage is far less saturated than "game green"). */
+const FOLIAGE = ['#3a4d33', '#44573b', '#31422b', '#4c5f42', '#3d5238'];
 
-/** A park tree: tapered trunk + a cluster of low-poly foliage clumps. */
+/**
+ * Lumpy organic foliage: an icosahedron whose vertices are displaced radially by
+ * a position-hash (same displacement for co-located verts → no cracks). Reads as
+ * a leaf mass rather than a smooth ball.
+ */
+function makeFoliageGeo(seed: number, detail = 2): THREE.BufferGeometry {
+  const g = new THREE.IcosahedronGeometry(1, detail);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7 + seed * 91.3) * 43758.5453;
+    const r = 1 + (h - Math.floor(h) - 0.5) * 0.42;
+    pos.setXYZ(i, x * r, y * r * 1.08, z * r);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/** A park tree: tapered trunk, a low branch, and lumpy leaf masses. */
 export function Tree({ object }: { object: SceneObject }) {
   const rot = seed01(object) * Math.PI * 2;
-  const leaf = (i: number) => (i === 0 ? object.color : FOLIAGE[Math.floor(seed01(object, i) * FOLIAGE.length)]);
+  const foliageGeo = useMemo(() => makeFoliageGeo(seed01(object) * 100), [object.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => foliageGeo.dispose(), [foliageGeo]);
+  const leaf = (i: number) => FOLIAGE[Math.floor(seed01(object, i + 1) * FOLIAGE.length)];
+  const bark = <meshStandardMaterial color="#4a3a2b" roughness={0.95} />;
   return (
     <group rotation={[0, rot, 0]}>
-      {/* Trunk (base sits on the ground at -2.3) */}
-      <mesh position={[0, -1.2, 0]}>
-        <cylinderGeometry args={[0.13, 0.22, 2.2, 8]} />
-        <meshStandardMaterial color="#5b4531" roughness={0.92} />
+      {/* Trunk (base at -2.3) + a forked branch */}
+      <mesh position={[0, -1.05, 0]}>
+        <cylinderGeometry args={[0.14, 0.26, 2.5, 8]} />
+        {bark}
       </mesh>
-      {/* Foliage clumps — flat-shaded so they read organic, not like spheres */}
+      <mesh position={[0.35, -0.15, 0.1]} rotation={[0, 0, -0.55]}>
+        <cylinderGeometry args={[0.06, 0.1, 1.3, 6]} />
+        {bark}
+      </mesh>
+      {/* Leaf masses — slightly squashed, overlapping, muted greens */}
       {[
-        [0, 1.0, 0, 1.35],
-        [0.72, 0.42, 0.28, 0.95],
-        [-0.66, 0.36, -0.22, 0.9],
-        [0.1, 0.28, 0.72, 0.8],
+        [0, 1.05, 0, 1.45],
+        [0.85, 0.5, 0.3, 1.0],
+        [-0.8, 0.42, -0.25, 0.95],
+        [0.15, 0.4, 0.85, 0.85],
+        [-0.25, 1.7, 0.15, 0.8],
       ].map(([x, y, z, sc], i) => (
-        <mesh key={i} position={[x, y, z]} scale={sc}>
-          <icosahedronGeometry args={[1, 1]} />
-          <meshStandardMaterial color={leaf(i)} roughness={0.95} flatShading />
+        <mesh key={i} geometry={foliageGeo} position={[x, y, z]} scale={[sc, sc * 0.88, sc]}>
+          <meshStandardMaterial color={leaf(i)} roughness={0.98} />
         </mesh>
       ))}
     </group>
   );
 }
 
-/** A low hedge/bush cluster. */
+/** A low hedge/bush cluster (same lumpy foliage, ground-hugging). */
 export function Bush({ object }: { object: SceneObject }) {
   const rot = seed01(object) * Math.PI * 2;
+  const foliageGeo = useMemo(() => makeFoliageGeo(seed01(object) * 55 + 7), [object.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => foliageGeo.dispose(), [foliageGeo]);
   return (
     <group rotation={[0, rot, 0]}>
       {[
-        [0, -0.1, 0, 0.62],
-        [0.45, -0.2, 0.15, 0.45],
-        [-0.4, -0.22, -0.1, 0.42],
+        [0, -0.12, 0, 0.62],
+        [0.48, -0.22, 0.15, 0.44],
+        [-0.42, -0.24, -0.1, 0.4],
+        [0.1, -0.2, -0.42, 0.38],
       ].map(([x, y, z, sc], i) => (
-        <mesh key={i} position={[x, y, z]} scale={sc}>
-          <icosahedronGeometry args={[1, 1]} />
-          <meshStandardMaterial color={i === 0 ? object.color : '#33652d'} roughness={0.95} flatShading />
+        <mesh key={i} geometry={foliageGeo} position={[x, y, z]} scale={[sc, sc * 0.78, sc]}>
+          <meshStandardMaterial color={FOLIAGE[(i * 2 + 1) % FOLIAGE.length]} roughness={0.98} />
         </mesh>
       ))}
     </group>
   );
 }
 
-const BOTTLE_COLORS = ['#39ff14', '#ffb020', '#22d3ee', '#ff4d6d', '#c084fc', '#f5f0e6'];
+const BOTTLE_COLORS = ['#2e5c2e', '#6b4a2a', '#3a5f77', '#5c2e34', '#4a4a52', '#6e5c33'];
+const CANVAS_WHITE = '#e7e4dc';
 
-/** Festival bar: counter, back shelf with glowing bottles, canopy + neon sign. */
+/**
+ * Festival bar tent — the real thing: a long white marquee (7 m), a plank
+ * counter along the whole front, staff area behind with bottle shelves, a warm
+ * light strip under the roof and a printed "BAR" banner on the gable.
+ */
 export function BarStand({ object }: { object: SceneObject }) {
+  const banner = useMemo(() => getBannerTexture('BAR', '#ffffff', object.color), [object.color]);
+  const canvasMat = useMemo(() => new THREE.MeshStandardMaterial({ color: CANVAS_WHITE, roughness: 0.92, side: THREE.DoubleSide }), []);
+  const postMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5f666f', metalness: 0.7, roughness: 0.4 }), []);
+  useEffect(() => () => {
+    canvasMat.dispose();
+    postMat.dispose();
+  }, [canvasMat, postMat]);
+  const W = 3.5; // half length
   return (
     <group>
-      {/* Counter + wooden top */}
-      <mesh position={[0, -0.8, 0.55]}>
-        <boxGeometry args={[3, 1.0, 0.65]} />
-        <meshStandardMaterial color="#26292f" roughness={0.7} metalness={0.2} />
-      </mesh>
-      <mesh position={[0, -0.27, 0.55]}>
-        <boxGeometry args={[3.15, 0.07, 0.8]} />
-        <meshStandardMaterial color="#7a5c3d" roughness={0.75} />
-      </mesh>
-      {/* Back shelf with a row of glowing bottles */}
-      <mesh position={[0, -0.6, -0.9]}>
-        <boxGeometry args={[3, 1.3, 0.3]} />
-        <meshStandardMaterial color="#15181f" roughness={0.7} metalness={0.3} />
-      </mesh>
-      {BOTTLE_COLORS.map((c, i) => (
-        <mesh key={i} position={[-1.1 + i * 0.44, 0.2, -0.9]}>
-          <cylinderGeometry args={[0.05, 0.06, 0.32, 8]} />
-          <meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.55} toneMapped={false} roughness={0.4} />
-        </mesh>
-      ))}
-      {/* Corner posts + canopy roof */}
-      {[-1.55, 1.55].map((x) =>
-        [-1.1, 1.1].map((z) => (
-          <mesh key={`${x}_${z}`} position={[x, 0, z]}>
-            <boxGeometry args={[0.07, 2.5, 0.07]} />
-            <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.4} />
+      {/* Posts along front + back */}
+      {[-W + 0.2, 0, W - 0.2].map((x) =>
+        [-1.35, 1.35].map((z) => (
+          <mesh key={`${x}_${z}`} position={[x, -0.25, z]} material={postMat}>
+            <cylinderGeometry args={[0.035, 0.035, 2.5, 8]} />
           </mesh>
         )),
       )}
-      <mesh position={[0, 1.26, 0]} rotation={[0.05, 0, 0]}>
-        <boxGeometry args={[3.5, 0.07, 2.6]} />
-        <meshStandardMaterial color="#101318" roughness={0.9} />
+      {/* Gabled canvas roof (two pitched panels meeting at a ridge) */}
+      <mesh position={[0, 1.2, 0.78]} rotation={[0.52, 0, 0]} material={canvasMat}>
+        <planeGeometry args={[W * 2 + 0.5, 1.85]} />
       </mesh>
-      {/* Neon sign on the canopy front (tinted by the object color) */}
-      <mesh position={[0, 0.95, 1.24]}>
-        <planeGeometry args={[1.3, 0.4]} />
-        <meshStandardMaterial color={object.color} emissive={object.color} emissiveIntensity={1.1} toneMapped={false} side={THREE.DoubleSide} />
+      <mesh position={[0, 1.2, -0.78]} rotation={[-0.52, 0, 0]} material={canvasMat}>
+        <planeGeometry args={[W * 2 + 0.5, 1.85]} />
+      </mesh>
+      {/* Canvas back wall + gable ends */}
+      <mesh position={[0, 0.05, -1.42]} material={canvasMat}>
+        <planeGeometry args={[W * 2 + 0.3, 2.1]} />
+      </mesh>
+      {/* Valance strip along the front edge */}
+      <mesh position={[0, 0.92, 1.44]} material={canvasMat}>
+        <planeGeometry args={[W * 2 + 0.5, 0.28]} />
+      </mesh>
+      {/* Printed banner on the valance, centred */}
+      <mesh position={[0, 0.93, 1.455]}>
+        <planeGeometry args={[1.9, 0.55]} />
+        <meshStandardMaterial map={banner} roughness={0.8} />
+      </mesh>
+      {/* Long plank counter across the front */}
+      <mesh position={[0, -0.85, 1.05]}>
+        <boxGeometry args={[W * 2 - 0.4, 0.95, 0.55]} />
+        <meshStandardMaterial color="#6e5638" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, -0.34, 1.05]}>
+        <boxGeometry args={[W * 2 - 0.25, 0.06, 0.72]} />
+        <meshStandardMaterial color="#8a6c46" roughness={0.7} />
+      </mesh>
+      {/* Back bar: shelf + realistic glass-bottle row (subtle, not neon) */}
+      <mesh position={[0, -0.7, -1.15]}>
+        <boxGeometry args={[W * 2 - 0.8, 1.2, 0.35]} />
+        <meshStandardMaterial color="#3a3f47" roughness={0.7} metalness={0.2} />
+      </mesh>
+      {Array.from({ length: 12 }).map((_, i) => (
+        <mesh key={i} position={[-W + 0.85 + i * 0.52, 0.06, -1.15]}>
+          <cylinderGeometry args={[0.045, 0.055, 0.3, 8]} />
+          <meshStandardMaterial color={BOTTLE_COLORS[i % BOTTLE_COLORS.length]} roughness={0.25} metalness={0.1} />
+        </mesh>
+      ))}
+      {/* Warm service light under the ridge (reads at night) */}
+      <mesh position={[0, 1.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[W * 2 - 1, 0.14]} />
+        <meshStandardMaterial color="#ffd9a0" emissive="#ffd9a0" emissiveIntensity={0.9} toneMapped={false} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
 }
 
-/** Food stall with a striped awning and a lit menu board. */
+/** Market-style food stall: small canvas gable tent, counter, printed banner. */
 export function FoodStand({ object }: { object: SceneObject }) {
+  const banner = useMemo(() => getBannerTexture('FOOD', '#ffffff', object.color), [object.color]);
+  const canvasMat = useMemo(() => new THREE.MeshStandardMaterial({ color: CANVAS_WHITE, roughness: 0.92, side: THREE.DoubleSide }), []);
+  useEffect(() => () => canvasMat.dispose(), [canvasMat]);
   return (
     <group>
-      {/* Stall body + counter top */}
-      <mesh position={[0, -0.68, 0]}>
-        <boxGeometry args={[2.4, 1.15, 1.0]} />
-        <meshStandardMaterial color="#2b2e36" roughness={0.75} />
-      </mesh>
-      <mesh position={[0, -0.08, 0.1]}>
-        <boxGeometry args={[2.5, 0.06, 1.25]} />
-        <meshStandardMaterial color="#8a6a48" roughness={0.75} />
-      </mesh>
-      {/* Rear posts + striped awning sloping forward */}
-      {[-1.15, 1.15].map((x) => (
-        <mesh key={x} position={[x, 0.4, -0.42]}>
-          <boxGeometry args={[0.06, 1.7, 0.06]} />
-          <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.4} />
-        </mesh>
-      ))}
-      <group position={[0, 1.12, 0.25]} rotation={[-0.32, 0, 0]}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <mesh key={i} position={[-1.05 + i * 0.42, 0, 0]}>
-            <planeGeometry args={[0.42, 1.5]} />
-            <meshStandardMaterial color={i % 2 === 0 ? object.color : '#e8e4da'} roughness={0.85} side={THREE.DoubleSide} />
+      {/* Corner posts */}
+      {[-1.45, 1.45].map((x) =>
+        [-1.05, 1.05].map((z) => (
+          <mesh key={`${x}_${z}`} position={[x, -0.2, z]}>
+            <cylinderGeometry args={[0.032, 0.032, 2.4, 8]} />
+            <meshStandardMaterial color="#5f666f" metalness={0.7} roughness={0.4} />
           </mesh>
-        ))}
-      </group>
-      {/* Lit menu board */}
-      <mesh position={[0, 0.42, -0.44]}>
-        <planeGeometry args={[1.6, 0.6]} />
-        <meshStandardMaterial color="#f4ead6" emissive="#f4ead6" emissiveIntensity={0.5} toneMapped={false} />
+        )),
+      )}
+      {/* Gabled canvas roof + valance */}
+      <mesh position={[0, 1.12, 0.58]} rotation={[0.55, 0, 0]} material={canvasMat}>
+        <planeGeometry args={[3.2, 1.4]} />
+      </mesh>
+      <mesh position={[0, 1.12, -0.58]} rotation={[-0.55, 0, 0]} material={canvasMat}>
+        <planeGeometry args={[3.2, 1.4]} />
+      </mesh>
+      <mesh position={[0, 0.88, 1.08]} material={canvasMat}>
+        <planeGeometry args={[3.2, 0.24]} />
+      </mesh>
+      {/* Printed banner */}
+      <mesh position={[0, 0.89, 1.095]}>
+        <planeGeometry args={[1.5, 0.45]} />
+        <meshStandardMaterial map={banner} roughness={0.8} />
+      </mesh>
+      {/* Stall body + counter top */}
+      <mesh position={[0, -0.72, 0.2]}>
+        <boxGeometry args={[2.6, 1.05, 0.8]} />
+        <meshStandardMaterial color="#454a52" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, -0.16, 0.2]}>
+        <boxGeometry args={[2.7, 0.06, 0.95]} />
+        <meshStandardMaterial color="#8a6c46" roughness={0.7} />
+      </mesh>
+      {/* Back wall + lit menu board */}
+      <mesh position={[0, 0.05, -1.02]} material={canvasMat}>
+        <planeGeometry args={[3.0, 2.0]} />
+      </mesh>
+      <mesh position={[0, 0.45, -0.99]}>
+        <planeGeometry args={[1.5, 0.55]} />
+        <meshStandardMaterial color="#f4ead6" emissive="#f4ead6" emissiveIntensity={0.45} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -816,47 +948,94 @@ export function Tent({ object }: { object: SceneObject }) {
   );
 }
 
-/** Festival portaloo cabin: tinted body, light roof, door seam + handle. */
+/**
+ * Festival sanitary block — half cabin, half open urinal, like the real thing:
+ * a lockable cabin on the left (door, handle, occupancy dot, roof cap, vents)
+ * and an open urinal bay on the right (modesty screens + trough).
+ */
 export function Portaloo({ object }: { object: SceneObject }) {
+  const body = useMemo(() => new THREE.MeshStandardMaterial({ color: object.color, roughness: 0.62 }), [object.color]);
+  useEffect(() => () => body.dispose(), [body]);
+  const free = seed01(object) > 0.5; // some cabins show green, some red — lived-in
   return (
     <group>
-      <mesh>
-        <boxGeometry args={[1.05, 2.25, 1.05]} />
-        <meshStandardMaterial color={object.color} roughness={0.6} />
-      </mesh>
-      <mesh position={[0, 1.16, 0]}>
-        <boxGeometry args={[1.12, 0.1, 1.12]} />
-        <meshStandardMaterial color="#dde3ea" roughness={0.5} />
-      </mesh>
-      {/* Door seam + handle + vent slots on the front */}
-      <mesh position={[0, -0.05, 0.531]}>
-        <planeGeometry args={[0.8, 1.9]} />
-        <meshStandardMaterial color="#000000" transparent opacity={0.22} />
-      </mesh>
-      <mesh position={[0.3, -0.1, 0.54]}>
-        <boxGeometry args={[0.05, 0.14, 0.03]} />
-        <meshStandardMaterial color="#e8ecf2" metalness={0.5} roughness={0.4} />
-      </mesh>
-      {[0.78, 0.9].map((y) => (
-        <mesh key={y} position={[0, y, 0.531]}>
-          <planeGeometry args={[0.6, 0.04]} />
-          <meshStandardMaterial color="#0c0e14" />
+      {/* --- Cabin (left half) --- */}
+      <group position={[-0.62, 0, 0]}>
+        <mesh material={body}>
+          <boxGeometry args={[1.05, 2.25, 1.05]} />
         </mesh>
-      ))}
+        <mesh position={[0, 1.16, 0]}>
+          <boxGeometry args={[1.12, 0.1, 1.12]} />
+          <meshStandardMaterial color="#dde3ea" roughness={0.5} />
+        </mesh>
+        {/* Door seam, handle, occupancy dot, vents */}
+        <mesh position={[0, -0.05, 0.531]}>
+          <planeGeometry args={[0.8, 1.9]} />
+          <meshStandardMaterial color="#000000" transparent opacity={0.22} />
+        </mesh>
+        <mesh position={[0.3, -0.1, 0.54]}>
+          <boxGeometry args={[0.05, 0.14, 0.03]} />
+          <meshStandardMaterial color="#e8ecf2" metalness={0.5} roughness={0.4} />
+        </mesh>
+        <mesh position={[0.3, 0.18, 0.535]}>
+          <circleGeometry args={[0.03, 10]} />
+          <meshStandardMaterial color={free ? '#2fae4e' : '#c43a3a'} emissive={free ? '#2fae4e' : '#c43a3a'} emissiveIntensity={0.4} toneMapped={false} />
+        </mesh>
+        {[0.78, 0.9].map((y) => (
+          <mesh key={y} position={[0, y, 0.531]}>
+            <planeGeometry args={[0.6, 0.04]} />
+            <meshStandardMaterial color="#0c0e14" />
+          </mesh>
+        ))}
+      </group>
+
+      {/* --- Open urinal bay (right half) --- */}
+      <group position={[0.62, 0, 0]}>
+        {/* Back panel + side modesty screens (waist-to-shoulder height) */}
+        <mesh position={[0, -0.28, -0.5]} material={body}>
+          <boxGeometry args={[1.05, 1.7, 0.06]} />
+        </mesh>
+        <mesh position={[0.5, -0.35, -0.05]} material={body}>
+          <boxGeometry args={[0.06, 1.55, 0.95]} />
+        </mesh>
+        {/* Urinal trough along the back */}
+        <mesh position={[0, -0.62, -0.32]} rotation={[0.5, 0, 0]}>
+          <boxGeometry args={[0.95, 0.09, 0.34]} />
+          <meshStandardMaterial color="#aeb6bf" metalness={0.6} roughness={0.35} />
+        </mesh>
+        <mesh position={[0, -0.42, -0.44]}>
+          <boxGeometry args={[0.95, 0.5, 0.05]} />
+          <meshStandardMaterial color="#c3cad2" metalness={0.55} roughness={0.4} />
+        </mesh>
+      </group>
     </group>
   );
 }
 
-/** Tall pole with a gently waving festival flag (tinted by the object color). */
+/**
+ * Tall pole with a cloth flag. The flag is a segmented plane whose vertices
+ * ripple in a travelling wave (amplitude grows toward the free end), pinned at
+ * the pole — it reads as real fabric in the wind, not a rotating board.
+ */
 export function FlagPole({ object }: { object: SceneObject }) {
-  const flagRef = useRef<THREE.Group>(null);
   const phase = seed01(object) * Math.PI * 2;
+  const flagW = 1.35;
+  const geo = useMemo(() => new THREE.PlaneGeometry(flagW, 0.8, 12, 6), []);
+  useEffect(() => () => geo.dispose(), [geo]);
+
   useFrame(({ clock }) => {
-    if (!flagRef.current) return;
     const t = clock.elapsedTime;
-    flagRef.current.rotation.y = Math.sin(t * 1.6 + phase) * 0.25;
-    flagRef.current.rotation.z = Math.sin(t * 2.3 + phase) * 0.05;
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i); // -w/2 (pole side) .. +w/2 (free end)
+      const u = (x + flagW / 2) / flagW; // 0 at the pole, 1 free
+      const wave = Math.sin(u * 6.5 - t * 4.2 + phase) * 0.14 + Math.sin(u * 11 - t * 6.4 + phase * 1.7) * 0.05;
+      pos.setZ(i, wave * u * u); // pinned at the pole, freer at the tip
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
   });
+
   return (
     <group>
       <mesh>
@@ -867,12 +1046,9 @@ export function FlagPole({ object }: { object: SceneObject }) {
         <sphereGeometry args={[0.06, 8, 8]} />
         <meshStandardMaterial color="#d9dee6" metalness={0.6} roughness={0.4} />
       </mesh>
-      <group ref={flagRef} position={[0, 2.05, 0]}>
-        <mesh position={[0.62, 0, 0]}>
-          <planeGeometry args={[1.2, 0.72]} />
-          <meshStandardMaterial color={object.color} roughness={0.85} side={THREE.DoubleSide} />
-        </mesh>
-      </group>
+      <mesh geometry={geo} position={[flagW / 2 + 0.05, 2.05, 0]}>
+        <meshStandardMaterial color={object.color} roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
     </group>
   );
 }

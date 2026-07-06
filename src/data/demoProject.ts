@@ -53,7 +53,7 @@ export function createDemoProject(): Project {
   add(createSceneObject('food_stand', { name: 'Food East', position: [15, 1.25, 15], rotation: [0, -Math.PI / 2.4, 0] }));
   add(createSceneObject('tent', { name: 'Chill Tent', position: [-19, 1.25, 25] }));
   for (let i = 0; i < 4; i++) {
-    add(createSceneObject('portaloo', { name: `WC ${i + 1}`, position: [20 + i * 1.2, 1.15, 27], rotation: [0, Math.PI, 0] }));
+    add(createSceneObject('portaloo', { name: `WC ${i + 1}`, position: [18 + i * 2.4, 1.15, 27], rotation: [0, Math.PI, 0] }));
   }
   add(createSceneObject('flag_pole', { name: 'Flag L', position: [-7.6, 2.5, 6.9], color: '#22d3ee' }));
   add(createSceneObject('flag_pole', { name: 'Flag R', position: [7.6, 2.5, 6.9], color: '#e64bd6' }));

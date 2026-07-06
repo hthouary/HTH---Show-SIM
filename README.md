@@ -131,10 +131,12 @@ A switch in the top bar flips between the two ways you work on a show:
   one click to add to the scene, including **vertical structures** (truss
   towers, arches), **crowd barriers** and a **front-of-house mix tower**.
 - **Festival grounds** — a whole decor category to build a believable site:
-  **trees and bushes** (position-seeded variation, so copies never look cloned),
-  a **festival bar** with glowing bottles and a neon sign, a striped **food
-  stand**, a canvas **tent**, rows of **portaloos**, gently **waving flags** and
-  galvanised **perimeter fence panels** that chain with the magnet.
+  **trees and bushes** with lumpy vertex-displaced foliage in muted natural
+  greens (position-seeded, so copies never look cloned), a **7 m bar tent** with
+  a plank counter, bottle shelves, warm service light and a printed BAR banner,
+  a market-style **food stall**, a canvas **tent**, **toilet blocks** (lockable
+  cabin + open urinal bay, occupancy dot), cloth **flags that ripple in the
+  wind** and galvanised **perimeter fence panels** that chain with the magnet.
 - **Realistic gear** — fixtures are modelled to read like real touring hardware:
   moving heads with a base, U-yoke and a tilting lit head; beam fixtures; LED
   strobe panels; 2×2 blinder lamp arrays; a laser projector with heat-sink fins
