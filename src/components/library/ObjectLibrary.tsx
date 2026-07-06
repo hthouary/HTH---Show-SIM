@@ -25,14 +25,23 @@ export const OBJECT_ICONS: Record<SceneObjectType, IconName> = {
   flame_jet: 'flame',
   co2_jet: 'snow',
   confetti_cannon: 'party',
+  tree: 'tree',
+  bush: 'tree',
+  bar_stand: 'cup',
+  food_stand: 'cup',
+  tent: 'tent',
+  portaloo: 'box',
+  flag_pole: 'flag',
+  fence_panel: 'fence',
 };
 
-const CATEGORY_ORDER: LibraryCategory[] = ['stage', 'lights', 'fx'];
+const CATEGORY_ORDER: LibraryCategory[] = ['stage', 'lights', 'fx', 'decor'];
 
 const CATEGORY_ACCENT: Record<LibraryCategory, string> = {
   stage: 'text-slate-400',
   lights: 'text-accent-cyan',
   fx: 'text-accent-magenta',
+  decor: 'text-emerald-400',
 };
 
 export function ObjectLibrary() {

@@ -18,6 +18,15 @@ export type SceneObjectType =
   | 'crowd_block'
   | 'barrier'
   | 'foh_tower'
+  // Festival grounds
+  | 'tree'
+  | 'bush'
+  | 'bar_stand'
+  | 'food_stand'
+  | 'tent'
+  | 'portaloo'
+  | 'flag_pole'
+  | 'fence_panel'
   // Lights
   | 'moving_head_spot'
   | 'moving_head_wash'
@@ -31,7 +40,7 @@ export type SceneObjectType =
   | 'co2_jet'
   | 'confetti_cannon';
 
-export type LibraryCategory = 'stage' | 'lights' | 'fx';
+export type LibraryCategory = 'stage' | 'lights' | 'fx' | 'decor';
 
 /**
  * App working mode. `build` is a construction sandbox (grid, magnetic snapping,

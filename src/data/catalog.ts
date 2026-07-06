@@ -107,6 +107,80 @@ export const CATALOG: CatalogEntry[] = [
     defaults: { color: '#9aa3b2', scale: 1, position: [0, 1.3, 20], intensity: 0 },
   },
 
+  // ------------------------------------------------------- Festival grounds
+  {
+    type: 'tree',
+    label: 'Tree',
+    category: 'decor',
+    hint: 'Greenery',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#2f5d2a', scale: 1, position: [-14, 2.3, 4], intensity: 0 },
+  },
+  {
+    type: 'bush',
+    label: 'Bush',
+    category: 'decor',
+    hint: 'Low hedge',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#2f5d2a', scale: 1, position: [-12, 0.5, 6], intensity: 0 },
+  },
+  {
+    type: 'bar_stand',
+    label: 'Festival Bar',
+    category: 'decor',
+    hint: 'Drinks stand',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#ff2bd0', scale: 1, position: [-12, 1.3, 14], intensity: 0 },
+  },
+  {
+    type: 'food_stand',
+    label: 'Food Stand',
+    category: 'decor',
+    hint: 'Snack stall',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#e04747', scale: 1, position: [12, 1.25, 14], intensity: 0 },
+  },
+  {
+    type: 'tent',
+    label: 'Tent',
+    category: 'decor',
+    hint: 'Canvas pagoda',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#d8d3c8', scale: 1, position: [14, 1.25, 6], intensity: 0 },
+  },
+  {
+    type: 'portaloo',
+    label: 'Portaloo',
+    category: 'decor',
+    hint: 'Festival toilet',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#2f6fc4', scale: 1, position: [16, 1.15, 18], intensity: 0 },
+  },
+  {
+    type: 'flag_pole',
+    label: 'Flag Pole',
+    category: 'decor',
+    hint: 'Waving flag',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#22d3ee', scale: 1, position: [-8, 2.5, 8], intensity: 0 },
+  },
+  {
+    type: 'fence_panel',
+    label: 'Fence Panel',
+    category: 'decor',
+    hint: 'Perimeter fence',
+    track: 'fx',
+    emitsBeam: false,
+    defaults: { color: '#b9c0c9', scale: 1, position: [0, 1, 30], intensity: 0 },
+  },
+
   // --------------------------------------------------------------- Lights
   {
     type: 'moving_head_spot',
@@ -250,6 +324,7 @@ export const CATEGORY_LABELS: Record<LibraryCategory, string> = {
   stage: 'Stage',
   lights: 'Lights',
   fx: 'FX',
+  decor: 'Festival',
 };
 
 /** True for objects that participate in the lighting simulation. */

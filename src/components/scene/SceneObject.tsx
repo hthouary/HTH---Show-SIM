@@ -12,7 +12,25 @@ import { SmokeEffect } from './SmokeEffect';
 import { FlameEffect } from './FlameEffect';
 import { CO2Effect } from './CO2Effect';
 import { ConfettiEffect } from './ConfettiEffect';
-import { Barrier, CrowdBlock, DjBooth, FohTower, Speaker, StagePlatform, Truss, TrussArch, TrussTower } from './props';
+import {
+  Barrier,
+  BarStand,
+  Bush,
+  CrowdBlock,
+  DjBooth,
+  FencePanel,
+  FlagPole,
+  FohTower,
+  FoodStand,
+  Portaloo,
+  Speaker,
+  StagePlatform,
+  Tent,
+  Tree,
+  Truss,
+  TrussArch,
+  TrussTower,
+} from './props';
 import { ignoreRaycast } from './interaction';
 
 function renderBody(object: SceneObjectModel) {
@@ -35,6 +53,22 @@ function renderBody(object: SceneObjectModel) {
       return <Barrier object={object} />;
     case 'foh_tower':
       return <FohTower object={object} />;
+    case 'tree':
+      return <Tree object={object} />;
+    case 'bush':
+      return <Bush object={object} />;
+    case 'bar_stand':
+      return <BarStand object={object} />;
+    case 'food_stand':
+      return <FoodStand object={object} />;
+    case 'tent':
+      return <Tent object={object} />;
+    case 'portaloo':
+      return <Portaloo object={object} />;
+    case 'flag_pole':
+      return <FlagPole object={object} />;
+    case 'fence_panel':
+      return <FencePanel object={object} />;
     case 'led_screen':
       return <LedScreen />;
     case 'moving_head_spot':

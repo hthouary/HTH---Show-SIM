@@ -652,3 +652,268 @@ export function ConfettiCannonBody({ color }: { color: string }) {
     </group>
   );
 }
+
+// --------------------------------------------------------- Festival grounds
+
+/** Deterministic 0..1 hash from the object's position — stable per placement,
+ *  so duplicated / arrayed decor gets natural variation for free. */
+function seed01(object: SceneObject, salt = 0): number {
+  const s = Math.sin(object.position[0] * 12.9898 + object.position[2] * 78.233 + salt * 37.719) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+const FOLIAGE = ['#2c5527', '#356831', '#24491f', '#3c7034', '#2f5d2a'];
+
+/** A park tree: tapered trunk + a cluster of low-poly foliage clumps. */
+export function Tree({ object }: { object: SceneObject }) {
+  const rot = seed01(object) * Math.PI * 2;
+  const leaf = (i: number) => (i === 0 ? object.color : FOLIAGE[Math.floor(seed01(object, i) * FOLIAGE.length)]);
+  return (
+    <group rotation={[0, rot, 0]}>
+      {/* Trunk (base sits on the ground at -2.3) */}
+      <mesh position={[0, -1.2, 0]}>
+        <cylinderGeometry args={[0.13, 0.22, 2.2, 8]} />
+        <meshStandardMaterial color="#5b4531" roughness={0.92} />
+      </mesh>
+      {/* Foliage clumps — flat-shaded so they read organic, not like spheres */}
+      {[
+        [0, 1.0, 0, 1.35],
+        [0.72, 0.42, 0.28, 0.95],
+        [-0.66, 0.36, -0.22, 0.9],
+        [0.1, 0.28, 0.72, 0.8],
+      ].map(([x, y, z, sc], i) => (
+        <mesh key={i} position={[x, y, z]} scale={sc}>
+          <icosahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={leaf(i)} roughness={0.95} flatShading />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** A low hedge/bush cluster. */
+export function Bush({ object }: { object: SceneObject }) {
+  const rot = seed01(object) * Math.PI * 2;
+  return (
+    <group rotation={[0, rot, 0]}>
+      {[
+        [0, -0.1, 0, 0.62],
+        [0.45, -0.2, 0.15, 0.45],
+        [-0.4, -0.22, -0.1, 0.42],
+      ].map(([x, y, z, sc], i) => (
+        <mesh key={i} position={[x, y, z]} scale={sc}>
+          <icosahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={i === 0 ? object.color : '#33652d'} roughness={0.95} flatShading />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+const BOTTLE_COLORS = ['#39ff14', '#ffb020', '#22d3ee', '#ff4d6d', '#c084fc', '#f5f0e6'];
+
+/** Festival bar: counter, back shelf with glowing bottles, canopy + neon sign. */
+export function BarStand({ object }: { object: SceneObject }) {
+  return (
+    <group>
+      {/* Counter + wooden top */}
+      <mesh position={[0, -0.8, 0.55]}>
+        <boxGeometry args={[3, 1.0, 0.65]} />
+        <meshStandardMaterial color="#26292f" roughness={0.7} metalness={0.2} />
+      </mesh>
+      <mesh position={[0, -0.27, 0.55]}>
+        <boxGeometry args={[3.15, 0.07, 0.8]} />
+        <meshStandardMaterial color="#7a5c3d" roughness={0.75} />
+      </mesh>
+      {/* Back shelf with a row of glowing bottles */}
+      <mesh position={[0, -0.6, -0.9]}>
+        <boxGeometry args={[3, 1.3, 0.3]} />
+        <meshStandardMaterial color="#15181f" roughness={0.7} metalness={0.3} />
+      </mesh>
+      {BOTTLE_COLORS.map((c, i) => (
+        <mesh key={i} position={[-1.1 + i * 0.44, 0.2, -0.9]}>
+          <cylinderGeometry args={[0.05, 0.06, 0.32, 8]} />
+          <meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.55} toneMapped={false} roughness={0.4} />
+        </mesh>
+      ))}
+      {/* Corner posts + canopy roof */}
+      {[-1.55, 1.55].map((x) =>
+        [-1.1, 1.1].map((z) => (
+          <mesh key={`${x}_${z}`} position={[x, 0, z]}>
+            <boxGeometry args={[0.07, 2.5, 0.07]} />
+            <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.4} />
+          </mesh>
+        )),
+      )}
+      <mesh position={[0, 1.26, 0]} rotation={[0.05, 0, 0]}>
+        <boxGeometry args={[3.5, 0.07, 2.6]} />
+        <meshStandardMaterial color="#101318" roughness={0.9} />
+      </mesh>
+      {/* Neon sign on the canopy front (tinted by the object color) */}
+      <mesh position={[0, 0.95, 1.24]}>
+        <planeGeometry args={[1.3, 0.4]} />
+        <meshStandardMaterial color={object.color} emissive={object.color} emissiveIntensity={1.1} toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Food stall with a striped awning and a lit menu board. */
+export function FoodStand({ object }: { object: SceneObject }) {
+  return (
+    <group>
+      {/* Stall body + counter top */}
+      <mesh position={[0, -0.68, 0]}>
+        <boxGeometry args={[2.4, 1.15, 1.0]} />
+        <meshStandardMaterial color="#2b2e36" roughness={0.75} />
+      </mesh>
+      <mesh position={[0, -0.08, 0.1]}>
+        <boxGeometry args={[2.5, 0.06, 1.25]} />
+        <meshStandardMaterial color="#8a6a48" roughness={0.75} />
+      </mesh>
+      {/* Rear posts + striped awning sloping forward */}
+      {[-1.15, 1.15].map((x) => (
+        <mesh key={x} position={[x, 0.4, -0.42]}>
+          <boxGeometry args={[0.06, 1.7, 0.06]} />
+          <meshStandardMaterial color="#1a1d26" metalness={0.6} roughness={0.4} />
+        </mesh>
+      ))}
+      <group position={[0, 1.12, 0.25]} rotation={[-0.32, 0, 0]}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <mesh key={i} position={[-1.05 + i * 0.42, 0, 0]}>
+            <planeGeometry args={[0.42, 1.5]} />
+            <meshStandardMaterial color={i % 2 === 0 ? object.color : '#e8e4da'} roughness={0.85} side={THREE.DoubleSide} />
+          </mesh>
+        ))}
+      </group>
+      {/* Lit menu board */}
+      <mesh position={[0, 0.42, -0.44]}>
+        <planeGeometry args={[1.6, 0.6]} />
+        <meshStandardMaterial color="#f4ead6" emissive="#f4ead6" emissiveIntensity={0.5} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Canvas pagoda tent: fabric walls + pyramid roof. */
+export function Tent({ object }: { object: SceneObject }) {
+  return (
+    <group>
+      <mesh position={[0, -0.55, 0]}>
+        <boxGeometry args={[2.2, 1.4, 2.2]} />
+        <meshStandardMaterial color={object.color} roughness={0.95} />
+      </mesh>
+      {/* Pyramid roof (4-sided cone rotated 45°) */}
+      <mesh position={[0, 0.72, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[1.85, 1.1, 4]} />
+        <meshStandardMaterial color="#c9c2b4" roughness={0.95} flatShading />
+      </mesh>
+      <mesh position={[0, 1.3, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.35, 6]} />
+        <meshStandardMaterial color="#1a1d26" metalness={0.5} roughness={0.5} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Festival portaloo cabin: tinted body, light roof, door seam + handle. */
+export function Portaloo({ object }: { object: SceneObject }) {
+  return (
+    <group>
+      <mesh>
+        <boxGeometry args={[1.05, 2.25, 1.05]} />
+        <meshStandardMaterial color={object.color} roughness={0.6} />
+      </mesh>
+      <mesh position={[0, 1.16, 0]}>
+        <boxGeometry args={[1.12, 0.1, 1.12]} />
+        <meshStandardMaterial color="#dde3ea" roughness={0.5} />
+      </mesh>
+      {/* Door seam + handle + vent slots on the front */}
+      <mesh position={[0, -0.05, 0.531]}>
+        <planeGeometry args={[0.8, 1.9]} />
+        <meshStandardMaterial color="#000000" transparent opacity={0.22} />
+      </mesh>
+      <mesh position={[0.3, -0.1, 0.54]}>
+        <boxGeometry args={[0.05, 0.14, 0.03]} />
+        <meshStandardMaterial color="#e8ecf2" metalness={0.5} roughness={0.4} />
+      </mesh>
+      {[0.78, 0.9].map((y) => (
+        <mesh key={y} position={[0, y, 0.531]}>
+          <planeGeometry args={[0.6, 0.04]} />
+          <meshStandardMaterial color="#0c0e14" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Tall pole with a gently waving festival flag (tinted by the object color). */
+export function FlagPole({ object }: { object: SceneObject }) {
+  const flagRef = useRef<THREE.Group>(null);
+  const phase = seed01(object) * Math.PI * 2;
+  useFrame(({ clock }) => {
+    if (!flagRef.current) return;
+    const t = clock.elapsedTime;
+    flagRef.current.rotation.y = Math.sin(t * 1.6 + phase) * 0.25;
+    flagRef.current.rotation.z = Math.sin(t * 2.3 + phase) * 0.05;
+  });
+  return (
+    <group>
+      <mesh>
+        <cylinderGeometry args={[0.035, 0.05, 5, 8]} />
+        <meshStandardMaterial color="#8a919c" metalness={0.7} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 2.52, 0]}>
+        <sphereGeometry args={[0.06, 8, 8]} />
+        <meshStandardMaterial color="#d9dee6" metalness={0.6} roughness={0.4} />
+      </mesh>
+      <group ref={flagRef} position={[0, 2.05, 0]}>
+        <mesh position={[0.62, 0, 0]}>
+          <planeGeometry args={[1.2, 0.72]} />
+          <meshStandardMaterial color={object.color} roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** Galvanised perimeter fence panel (heras): feet, frame and wire grid. */
+export function FencePanel({ object }: { object: SceneObject }) {
+  const steel = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: object.color, metalness: 0.75, roughness: 0.4 }),
+    [object.color],
+  );
+  useEffect(() => () => steel.dispose(), [steel]);
+  return (
+    <group>
+      {/* Feet */}
+      {[-0.95, 0.95].map((x) => (
+        <mesh key={x} position={[x, -0.97, 0]} material={steel}>
+          <boxGeometry args={[0.28, 0.08, 0.5]} />
+        </mesh>
+      ))}
+      {/* Frame */}
+      {[-0.99, 0.99].map((y) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]} material={steel}>
+          <cylinderGeometry args={[0.025, 0.025, 2.2, 6]} />
+        </mesh>
+      ))}
+      {[-1.08, 1.08].map((x) => (
+        <mesh key={x} position={[x, 0, 0]} material={steel}>
+          <cylinderGeometry args={[0.025, 0.025, 2.0, 6]} />
+        </mesh>
+      ))}
+      {/* Wire grid — a few thin bars read as mesh from a distance */}
+      {[-0.72, -0.36, 0, 0.36, 0.72].map((x) => (
+        <mesh key={`v${x}`} position={[x, 0, 0]} material={steel}>
+          <boxGeometry args={[0.015, 1.95, 0.015]} />
+        </mesh>
+      ))}
+      {[-0.5, 0, 0.5].map((y) => (
+        <mesh key={`h${y}`} position={[0, y, 0]} material={steel}>
+          <boxGeometry args={[2.12, 0.015, 0.015]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}

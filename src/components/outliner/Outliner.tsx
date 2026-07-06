@@ -5,11 +5,12 @@ import { Icon } from '../ui/Icon';
 import { OBJECT_ICONS } from '../library/ObjectLibrary';
 import { useT } from '../../i18n/useT';
 
-const ORDER: LibraryCategory[] = ['stage', 'lights', 'fx'];
+const ORDER: LibraryCategory[] = ['stage', 'lights', 'fx', 'decor'];
 const ACCENT: Record<LibraryCategory, string> = {
   stage: 'text-slate-400',
   lights: 'text-accent-cyan',
   fx: 'text-accent-magenta',
+  decor: 'text-emerald-400',
 };
 
 /** Scene tree: list every object to select / hide / duplicate / delete it. */

@@ -35,6 +35,29 @@ export function createDemoProject(): Project {
   }
   add(createSceneObject('foh_tower', { name: 'FOH', position: [0, 1.3, 23] }));
 
+  // ---- Festival grounds ---------------------------------------------------
+  const treeSpots: [number, number][] = [
+    [-19, 2],
+    [-22, 9],
+    [-18, 16],
+    [19, 3],
+    [22, 10],
+    [18, 17],
+    [-24, 22],
+    [24, 24],
+  ];
+  treeSpots.forEach(([x, z], i) => add(createSceneObject('tree', { name: `Tree ${i + 1}`, position: [x, 2.3, z] })));
+  add(createSceneObject('bush', { name: 'Bush L', position: [-16, 0.5, 7] }));
+  add(createSceneObject('bush', { name: 'Bush R', position: [16, 0.5, 8] }));
+  add(createSceneObject('bar_stand', { name: 'Bar West', position: [-15, 1.3, 14], rotation: [0, Math.PI / 2.4, 0] }));
+  add(createSceneObject('food_stand', { name: 'Food East', position: [15, 1.25, 15], rotation: [0, -Math.PI / 2.4, 0] }));
+  add(createSceneObject('tent', { name: 'Chill Tent', position: [-19, 1.25, 25] }));
+  for (let i = 0; i < 4; i++) {
+    add(createSceneObject('portaloo', { name: `WC ${i + 1}`, position: [20 + i * 1.2, 1.15, 27], rotation: [0, Math.PI, 0] }));
+  }
+  add(createSceneObject('flag_pole', { name: 'Flag L', position: [-7.6, 2.5, 6.9], color: '#22d3ee' }));
+  add(createSceneObject('flag_pole', { name: 'Flag R', position: [7.6, 2.5, 6.9], color: '#e64bd6' }));
+
   // ---- 8 moving heads on the front truss (4 spot + 4 wash) ---------------
   const headX = [-6, -3.6, -1.2, 1.2, 3.6, 6];
   for (let i = 0; i < 4; i++) {

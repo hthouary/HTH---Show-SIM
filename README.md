@@ -127,9 +127,14 @@ A switch in the top bar flips between the two ways you work on a show:
 - **Procedural sound** — FX have voices (CO2 hiss, flame woomph, confetti
   flutter) and the **crowd roars when the hype spikes** on a drop. All
   synthesised in Web Audio (no asset files); toggle it with the Sound button.
-- **Object library** — 20 object types across Stage / Lights / FX, one click to
-  add to the scene, including **vertical structures** (truss towers, arches),
-  **crowd barriers** and a **front-of-house mix tower**.
+- **Object library** — 28 object types across Stage / Lights / FX / Festival,
+  one click to add to the scene, including **vertical structures** (truss
+  towers, arches), **crowd barriers** and a **front-of-house mix tower**.
+- **Festival grounds** — a whole decor category to build a believable site:
+  **trees and bushes** (position-seeded variation, so copies never look cloned),
+  a **festival bar** with glowing bottles and a neon sign, a striped **food
+  stand**, a canvas **tent**, rows of **portaloos**, gently **waving flags** and
+  galvanised **perimeter fence panels** that chain with the magnet.
 - **Realistic gear** — fixtures are modelled to read like real touring hardware:
   moving heads with a base, U-yoke and a tilting lit head; beam fixtures; LED
   strobe panels; 2×2 blinder lamp arrays; a laser projector with heat-sink fins
