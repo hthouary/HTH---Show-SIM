@@ -162,8 +162,13 @@ function ViewportOverlay({
   const placementType = useShowStore((s) => s.placementType);
   const cancelPlacement = useShowStore((s) => s.cancelPlacement);
   const selectedId = useShowStore((s) => s.selectedObjectId);
+  const selectedCount = useShowStore((s) => s.selectedObjectIds.length);
   const gizmoMode = useShowStore((s) => s.gizmoMode);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
+  const duplicateSelection = useShowStore((s) => s.duplicateSelection);
+  const deleteObject = useShowStore((s) => s.deleteObject);
+  const selectObject = useShowStore((s) => s.selectObject);
+  const buildMode = useShowStore((s) => s.appMode === 'build');
   const t = useT();
 
   return (
@@ -173,25 +178,6 @@ function ViewportOverlay({
         <Icon name="eye" size={13} className="text-accent-cyan" />
         <span>{t('viewport.hint')}</span>
       </div>
-
-      {/* Gizmo mode toolbar (only when an object is selected) */}
-      {selectedId && !placementType && (
-        <div className="absolute left-3 top-14 flex items-center gap-1 rounded-lg border border-ink-700/70 bg-ink-900/80 p-1 backdrop-blur">
-          {(['translate', 'rotate'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setGizmoMode(m)}
-              className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-                gizmoMode === m ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title={m === 'translate' ? t('viewport.move.title') : t('viewport.rotate.title')}
-            >
-              {m === 'translate' ? t('viewport.move') : t('viewport.rotate')}
-              <span className="ml-1 text-slate-600">{m === 'translate' ? 'W' : 'E'}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Top-right view toggles (wrap on narrow screens so they stay on-screen) */}
       <div className="absolute right-3 top-3 flex max-w-[70vw] flex-wrap items-center justify-end gap-2 md:max-w-none md:flex-nowrap">
@@ -233,16 +219,35 @@ function ViewportOverlay({
         </button>
       </div>
 
-      {/* Placement banner */}
-      {placementType && (
-        <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-accent-cyan/50 bg-ink-900/85 px-3 py-1.5 text-[11px] text-accent-cyan shadow-glow backdrop-blur">
-          <Icon name="plus" size={13} />
-          <span>{t('viewport.placing', { label: t(`obj.${placementType}.label`) })}</span>
-          <button className="ml-1 rounded px-1.5 text-slate-400 hover:text-white" onClick={cancelPlacement}>
-            Esc
-          </button>
-        </div>
-      )}
+      {/* Top-centre guidance — one of: placing / selection actions / build tip. */}
+      <div className="absolute left-1/2 top-3 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 justify-center">
+        {placementType ? (
+          <div className="flex items-center gap-2 rounded-lg border border-accent-cyan/50 bg-ink-900/90 px-3 py-1.5 text-[11px] text-accent-cyan shadow-glow backdrop-blur">
+            <Icon name="hand" size={14} />
+            <span>{t('viewport.placing', { label: t(`obj.${placementType}.label`) })}</span>
+            <button className="ml-1 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-white" onClick={cancelPlacement}>
+              Esc
+            </button>
+          </div>
+        ) : selectedId ? (
+          <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-ink-700/70 bg-ink-900/90 p-1 shadow-lg backdrop-blur">
+            <span className="hidden px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
+              {selectedCount > 1 ? t('sel.count', { n: selectedCount }) : t('sel.selected')}
+            </span>
+            <ActionBtn active={gizmoMode === 'translate'} icon="hand" label={t('viewport.move')} onClick={() => setGizmoMode('translate')} />
+            <ActionBtn active={gizmoMode === 'rotate'} icon="rotate" label={t('viewport.rotate')} onClick={() => setGizmoMode('rotate')} />
+            <span className="mx-0.5 h-6 w-px bg-ink-700" />
+            <ActionBtn icon="copy" label={t('action.duplicate')} onClick={duplicateSelection} />
+            <ActionBtn icon="trash" label={t('action.delete')} danger onClick={() => selectedId && deleteObject(selectedId)} />
+            <ActionBtn icon="close" label={t('inspector.deselect')} onClick={() => selectObject(null)} />
+          </div>
+        ) : buildMode ? (
+          <div className="pointer-events-none flex items-center gap-2 rounded-lg border border-ink-700/70 bg-ink-900/80 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur">
+            <span className="grid h-4 w-4 place-items-center rounded-full bg-accent-cyan/20 text-[9px] font-bold text-accent-cyan">1</span>
+            <span>{t('guide.build')}</span>
+          </div>
+        ) : null}
+      </div>
 
       {objectCount === 0 && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -253,6 +258,38 @@ function ViewportOverlay({
         </div>
       )}
     </>
+  );
+}
+
+/** Compact labelled button used in the selection action bar. */
+function ActionBtn({
+  icon,
+  label,
+  onClick,
+  active,
+  danger,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+        active
+          ? 'bg-accent-cyan/20 text-accent-cyan'
+          : danger
+            ? 'text-slate-300 hover:bg-rose-500/15 hover:text-rose-300'
+            : 'text-slate-300 hover:bg-ink-700 hover:text-white'
+      }`}
+    >
+      <Icon name={icon} size={14} />
+      <span className="hidden md:inline">{label}</span>
+    </button>
   );
 }
 

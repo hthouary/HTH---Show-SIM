@@ -8,6 +8,7 @@ import { TimelinePanel } from '../timeline/TimelinePanel';
 import { MobileShell } from './MobileShell';
 import { Toasts } from '../ui/Toasts';
 import { ShowResultCard } from '../ui/HypeUI';
+import { HelpModal } from '../ui/HelpModal';
 import { usePlaybackClock } from '../../utils/usePlaybackClock';
 import { useIsMobile } from '../../utils/useIsMobile';
 import { useShowStore } from '../../store/useShowStore';
@@ -45,9 +46,18 @@ export function AppShell() {
   const redo = useShowStore((s) => s.redo);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
 
-  // Restore the current project's saved audio track (best-effort) on first load.
+  // Restore the current project's saved audio track (best-effort) on first load,
+  // and open the welcome guide the very first time the app is used.
   useEffect(() => {
     void useShowStore.getState().restoreAudio();
+    try {
+      if (!localStorage.getItem('showforge.seenHelp')) {
+        useShowStore.getState().setHelpOpen(true);
+        localStorage.setItem('showforge.seenHelp', '1');
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   // Global keyboard shortcuts.
@@ -129,6 +139,7 @@ export function AppShell() {
       {isMobile ? <MobileShell /> : <DesktopShell />}
       <Toasts />
       <ShowResultCard />
+      <HelpModal />
     </>
   );
 }

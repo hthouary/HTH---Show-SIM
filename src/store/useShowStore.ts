@@ -52,6 +52,9 @@ interface ShowState {
   clipboard: ShowEvent[];
   /** Current working mode: build (construction sandbox) or show (timeline). */
   appMode: AppMode;
+  /** Whether the welcome / help guide overlay is open. */
+  helpOpen: boolean;
+  setHelpOpen: (open: boolean) => void;
   /** When set, the next click in the scene places an object of this type. */
   placementType: SceneObjectType | null;
   /** Whether floor / object collisions are enforced while placing / moving. */
@@ -327,6 +330,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     clipboard: [],
     showResult: null,
     appMode: buildPrefs.appMode,
+    helpOpen: false,
     placementType: null,
     collisions: buildPrefs.collisions,
     showGrid: buildPrefs.showGrid,
@@ -679,6 +683,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     // -------------------------------------------------------- Mode / build
+    setHelpOpen: (open) => set({ helpOpen: open }),
     setAppMode: (mode) => {
       const prev = get().appMode;
       if (prev === mode) return;

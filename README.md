@@ -105,6 +105,10 @@ A switch in the top bar flips between the two ways you work on a show:
 
 ## Features
 
+- **Beginner-friendly** — a welcome guide opens on first run (reopenable via the
+  “?” button) explaining the two modes and the three core actions. Selecting an
+  object shows on-screen **Move / Rotate / Duplicate / Delete / Deselect**
+  buttons, and Build mode shows a step-by-step hint — no shortcuts to memorise.
 - **3D viewport** — orbit / zoom / pan, a grey concrete ground to build on, ACES
   tone-mapping and bloom; click to select, transform gizmo on the selection.
 - **Sky & daylight** — a gradient sky with a sun that rises and sets: blue day

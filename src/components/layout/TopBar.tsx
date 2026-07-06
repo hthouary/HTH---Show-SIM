@@ -83,6 +83,7 @@ export function TopBar() {
   const redo = useShowStore((s) => s.redo);
   const canUndo = useShowStore((s) => s.past.length > 0);
   const canRedo = useShowStore((s) => s.future.length > 0);
+  const setHelpOpen = useShowStore((s) => s.setHelpOpen);
   const t = useT();
 
   const [showLoad, setShowLoad] = useState(false);
@@ -172,14 +173,21 @@ export function TopBar() {
           <TransportClock />
         </div>
       ) : (
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+        <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
           <Icon name="box" size={14} className="text-accent-cyan" />
           {t('build.banner')}
         </div>
       )}
 
-      {/* Mode switch + project name — right aligned */}
+      {/* Help + mode switch + project name — right aligned */}
       <div className="ml-auto flex items-center gap-2">
+        <button
+          className="btn-ghost w-8 px-0 text-accent-cyan"
+          onClick={() => setHelpOpen(true)}
+          title={t('help.title')}
+        >
+          <Icon name="help" size={17} />
+        </button>
         <ModeSwitch />
         <div className="h-6 w-px bg-ink-700" />
         <LanguageSwitch />

@@ -44,7 +44,10 @@ export type IconName =
   | 'brush'
   | 'sun'
   | 'moon'
-  | 'fence';
+  | 'fence'
+  | 'help'
+  | 'hand'
+  | 'rotate';
 
 const PATHS: Record<IconName, JSX.Element> = {
   play: <path d="M6 4l14 8-14 8z" />,
@@ -264,6 +267,26 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M5 20V8l2-3 2 3v12M15 20V8l2-3 2 3v12" />
       <path d="M3 12h18M3 17h18" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.2 9.2a2.8 2.8 0 0 1 5.4.9c0 1.8-2.6 2.3-2.6 3.9" />
+      <line x1="12" y1="17" x2="12" y2="17.01" />
+    </>
+  ),
+  hand: (
+    <>
+      <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M11 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M14 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-1.5a5 5 0 0 1-3.6-1.5L4 16.5a1.6 1.6 0 0 1 2.3-2.2L8 16" />
+    </>
+  ),
+  rotate: (
+    <>
+      <path d="M4 12a8 8 0 1 1 2.3 5.6" />
+      <path d="M4 20v-4h4" />
     </>
   ),
 };

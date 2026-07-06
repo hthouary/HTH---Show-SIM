@@ -53,6 +53,7 @@ export function BuildToolbar() {
   const collisions = useShowStore((s) => s.collisions);
   const toggleCollisions = useShowStore((s) => s.toggleCollisions);
   const objectCount = useShowStore((s) => s.project.objects.length);
+  const setHelpOpen = useShowStore((s) => s.setHelpOpen);
   const t = useT();
 
   return (
@@ -86,7 +87,14 @@ export function BuildToolbar() {
       <Chip active={collisions} onClick={toggleCollisions} icon="box" label={t('toggle.collisions')} title={t('toggle.collisions.title')} />
 
       <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-slate-600">
-        <span className="hidden lg:inline">{t('build.hint')}</span>
+        <span className="hidden xl:inline">{t('build.hint')}</span>
+        <button
+          className="flex items-center gap-1.5 rounded-lg border border-ink-700/70 bg-ink-850 px-2.5 py-1.5 text-[11px] text-accent-cyan hover:bg-ink-800"
+          onClick={() => setHelpOpen(true)}
+          title={t('help.title')}
+        >
+          <Icon name="help" size={13} /> {t('action.help')}
+        </button>
         <span className="rounded bg-ink-800 px-2 py-1 font-mono text-slate-500">{t('library.count', { n: objectCount })}</span>
       </div>
     </section>
