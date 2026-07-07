@@ -162,11 +162,12 @@ const LIVE_PADS: { type: import('../../types/show').ShowEventType; icon: IconNam
  */
 function LivePads() {
   const appMode = useShowStore((s) => s.appMode);
+  const playMode = useShowStore((s) => s.playMode);
   const trigger = useShowStore((s) => s.triggerLive);
   const rec = useShowStore((s) => s.liveRecord);
   const toggleRec = useShowStore((s) => s.toggleLiveRecord);
   const t = useT();
-  if (appMode !== 'show') return null;
+  if (appMode !== 'show' || playMode !== 'game') return null;
   return (
     <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-ink-700/70 bg-ink-900/85 p-1.5 backdrop-blur sm:gap-1.5">
       <span className="hidden px-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 md:inline">
@@ -351,6 +352,7 @@ export function SceneViewport() {
   const placementType = useShowStore((s) => s.placementType);
   const cancelPlacement = useShowStore((s) => s.cancelPlacement);
   const appMode = useShowStore((s) => s.appMode);
+  const playModeIsGame = useShowStore((s) => s.playMode === 'game');
   // Bloom defaults OFF: it flickers on some Windows/Chrome GPU+driver combos.
   // The scene glows via additive materials on its own; users can enable it.
   const [bloom, setBloom] = useState(false);
@@ -419,7 +421,7 @@ export function SceneViewport() {
         )}
       </Canvas>
       <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
-      {appMode === 'show' && <HypeMeter />}
+      {appMode === 'show' && playModeIsGame && <HypeMeter />}
       <LivePads />
     </div>
   );

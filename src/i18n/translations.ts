@@ -22,6 +22,10 @@ const en: Dict = {
   'mode.build': 'Build',
   'mode.show': 'Show',
 
+  'playmode.title': 'Experience: playful sim (Game) or clean authoring (Pro)',
+  'playmode.game': 'Game',
+  'playmode.pro': 'Pro',
+
   'build.banner': 'Construction mode',
   'build.title': 'Build',
   'build.grid': 'Grid',
@@ -390,6 +394,10 @@ const fr: Dict = {
   'mode.title': 'Mode',
   'mode.build': 'Construction',
   'mode.show': 'Show',
+
+  'playmode.title': 'Expérience : simulation ludique (Jeu) ou création pro',
+  'playmode.game': 'Jeu',
+  'playmode.pro': 'Pro',
 
   'build.banner': 'Mode construction',
   'build.title': 'Construction',

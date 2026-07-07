@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppMode, Lane, Project, SceneObject, SceneObjectType, ShowEvent, ShowEventType, Vec3 } from '../types/show';
+import type { AppMode, Lane, PlayMode, Project, SceneObject, SceneObjectType, ShowEvent, ShowEventType, Vec3 } from '../types/show';
 import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
@@ -56,6 +56,8 @@ interface ShowState {
   liveRecord: boolean;
   /** Current working mode: build (construction sandbox) or show (timeline). */
   appMode: AppMode;
+  /** Experience profile: playful sim (game) or clean authoring (pro). */
+  playMode: PlayMode;
   /** Whether the welcome / help guide overlay is open. */
   helpOpen: boolean;
   setHelpOpen: (open: boolean) => void;
@@ -125,6 +127,7 @@ interface ShowState {
 
   // ---- Mode / build tools ---------------------------------------------
   setAppMode: (mode: AppMode) => void;
+  setPlayMode: (mode: PlayMode) => void;
   toggleGrid: () => void;
   toggleGridSnap: () => void;
   setGridSize: (size: number) => void;
@@ -237,6 +240,7 @@ interface BuildPrefs {
   magnet: boolean;
   workLight: boolean;
   sound: boolean;
+  playMode: PlayMode;
 }
 
 const BUILD_DEFAULTS: BuildPrefs = {
@@ -248,6 +252,7 @@ const BUILD_DEFAULTS: BuildPrefs = {
   magnet: true,
   workLight: false,
   sound: true,
+  playMode: 'game',
 };
 
 const BUILD_KEY = 'showforge.build';
@@ -287,7 +292,7 @@ function saveBuildPrefs(p: BuildPrefs) {
 export const useShowStore = create<ShowState>((set, get) => {
   const startProject = initialProject();
   const buildPrefs = initialBuildPrefs();
-  sfx.enabled = buildPrefs.sound;
+  sfx.enabled = buildPrefs.sound && buildPrefs.playMode === 'game';
 
   // Snapshot the current build preferences to localStorage.
   const persistBuild = () => {
@@ -301,6 +306,7 @@ export const useShowStore = create<ShowState>((set, get) => {
       magnet: s.magnet,
       workLight: s.workLight,
       sound: s.sound,
+      playMode: s.playMode,
     });
   };
 
@@ -352,6 +358,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     liveEvents: [],
     liveRecord: false,
     appMode: buildPrefs.appMode,
+    playMode: buildPrefs.playMode,
     helpOpen: false,
     placementType: null,
     collisions: buildPrefs.collisions,
@@ -742,9 +749,18 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
     toggleSound: () => {
       const next = !get().sound;
-      sfx.enabled = next;
-      if (next) sfx.resume();
+      sfx.enabled = next && get().playMode === 'game';
+      if (sfx.enabled) sfx.resume();
       set({ sound: next });
+      persistBuild();
+    },
+
+    setPlayMode: (mode) => {
+      if (get().playMode === mode) return;
+      // Pro strips the simulation layer: no FX sounds, no hype score pending.
+      sfx.enabled = get().sound && mode === 'game';
+      if (sfx.enabled) sfx.resume();
+      set({ playMode: mode, showResult: null });
       persistBuild();
     },
 
@@ -1167,7 +1183,7 @@ export const useShowStore = create<ShowState>((set, get) => {
 
     finishShow: () => {
       if (get().hasAudio) audioEngine.pause();
-      const result = hypeMeter.scored ? { score: hypeMeter.average, peak: hypeMeter.peak } : null;
+      const result = get().playMode === 'game' && hypeMeter.scored ? { score: hypeMeter.average, peak: hypeMeter.peak } : null;
       set(result ? { isPlaying: false, showResult: result } : { isPlaying: false });
     },
     clearShowResult: () => set({ showResult: null }),

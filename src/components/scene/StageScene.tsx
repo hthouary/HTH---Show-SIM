@@ -57,16 +57,19 @@ export function StageScene() {
       flashRef.current.color.setRGB(state.light.color[0], state.light.color[1], state.light.color[2]);
     }
 
-    // Live crowd hype (feeds the meter, the crowd reaction and the final score).
-    hypeMeter.update(computeHype(state, audioEngine.level), Math.min(delta, 0.05), store.isPlaying);
+    // Live crowd hype (meter, crowd reaction, final score) — Game mode only;
+    // Pro is a clean authoring environment with no simulation layer.
+    if (store.playMode === 'game') {
+      hypeMeter.update(computeHype(state, audioEngine.level), Math.min(delta, 0.05), store.isPlaying);
 
-    // Crowd roars when the energy surges past a threshold (a drop landing).
-    const h = hypeMeter.value;
-    if (store.isPlaying && h > 0.6 && cheerArmed.current) {
-      sfx.cheer(h);
-      cheerArmed.current = false;
-    } else if (h < 0.42) {
-      cheerArmed.current = true;
+      // Crowd roars when the energy surges past a threshold (a drop landing).
+      const h = hypeMeter.value;
+      if (store.isPlaying && h > 0.6 && cheerArmed.current) {
+        sfx.cheer(h);
+        cheerArmed.current = false;
+      } else if (h < 0.42) {
+        cheerArmed.current = true;
+      }
     }
   });
 

@@ -393,6 +393,7 @@ interface Person {
  * show; phone screens only really read at night, like at a real gig.
  */
 export function CrowdBlock({ object }: { object: SceneObject }) {
+  const pro = useShowStore((s) => s.playMode === 'pro');
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
   const legRef = useRef<THREE.InstancedMesh>(null);
@@ -490,6 +491,7 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
   }, [people, arms, drinkers]);
 
   useFrame(({ clock }, delta) => {
+    if (useShowStore.getState().playMode === 'pro') return;
     if (!bodyRef.current || !headRef.current || !legRef.current || !armDownRef.current) return;
     const t = clock.elapsedTime;
     const dt = Math.min(delta, 0.1);
@@ -619,6 +621,34 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     if (phoneRef.current) phoneRef.current.instanceMatrix.needsUpdate = true;
     if (cupRef.current) cupRef.current.instanceMatrix.needsUpdate = true;
   });
+
+  // Pro mode: the crowd is not simulated — the block reads as a flat
+  // "audience zone" on the festival plan (fill + outline), still selectable.
+  if (pro) {
+    const zw = CROWD_COLS * 0.85;
+    const zd = CROWD_ROWS * 0.9;
+    const zz = CROWD_ROWS * 0.4;
+    return (
+      <group>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, zz]}>
+          <planeGeometry args={[zw, zd]} />
+          <meshStandardMaterial color={object.color} transparent opacity={0.22} roughness={1} />
+        </mesh>
+        {/* Outline */}
+        {[
+          [0, zz - zd / 2, zw, 0.12],
+          [0, zz + zd / 2, zw, 0.12],
+          [-zw / 2, zz, 0.12, zd],
+          [zw / 2, zz, 0.12, zd],
+        ].map(([x, z, w, d], i) => (
+          <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x as number, 0.012, z as number]}>
+            <planeGeometry args={[w as number, d as number]} />
+            <meshBasicMaterial color={object.color} toneMapped={false} transparent opacity={0.9} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
 
   return (
     <group>

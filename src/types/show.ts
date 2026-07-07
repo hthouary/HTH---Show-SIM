@@ -48,6 +48,13 @@ export type LibraryCategory = 'stage' | 'lights' | 'fx' | 'decor';
  */
 export type AppMode = 'build' | 'show';
 
+/**
+ * Experience profile. `game` is the playful sim (living crowd, hype meter,
+ * live pads, FX sounds, show score); `pro` strips the simulation for clean
+ * festival planning and show programming, like a pro tool.
+ */
+export type PlayMode = 'game' | 'pro';
+
 /** Broad family an event type belongs to (drives its colour + grouping). */
 export type EventCategory = 'lights' | 'lasers' | 'fx' | 'led' | 'global';
 

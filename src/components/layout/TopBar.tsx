@@ -34,6 +34,29 @@ function ModeSwitch() {
   );
 }
 
+/** Game / Pro experience switch: playful sim vs clean pro authoring. */
+function PlayModeSwitch() {
+  const playMode = useShowStore((s) => s.playMode);
+  const setPlayMode = useShowStore((s) => s.setPlayMode);
+  const t = useT();
+  return (
+    <div className="flex items-center rounded-lg border border-ink-700 bg-ink-850 p-0.5" title={t('playmode.title')}>
+      {(['game', 'pro'] as const).map((m) => (
+        <button
+          key={m}
+          onClick={() => setPlayMode(m)}
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            playMode === m ? 'bg-accent-magenta/20 text-accent-magenta' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Icon name={m === 'game' ? 'party' : 'target'} size={13} />
+          {t(`playmode.${m}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** EN / FR language switch. */
 function LanguageSwitch() {
   const language = useShowStore((s) => s.language);
@@ -188,6 +211,7 @@ export function TopBar() {
         >
           <Icon name="help" size={17} />
         </button>
+        <PlayModeSwitch />
         <ModeSwitch />
         <div className="h-6 w-px bg-ink-700" />
         <LanguageSwitch />

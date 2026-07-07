@@ -55,6 +55,7 @@ export function AppShell() {
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
   const selectedEventId = useShowStore((s) => s.selectedEventId);
   const appMode = useShowStore((s) => s.appMode);
+  const playMode = useShowStore((s) => s.playMode);
   const triggerLive = useShowStore((s) => s.triggerLive);
   const undo = useShowStore((s) => s.undo);
   const redo = useShowStore((s) => s.redo);
@@ -115,7 +116,7 @@ export function AppShell() {
 
       if (typing) return;
       // Live pads: 1–7 fire instant FX in Show mode.
-      if (appMode === 'show' && LIVE_KEYS[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (appMode === 'show' && playMode === 'game' && LIVE_KEYS[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         triggerLive(LIVE_KEYS[e.key]);
         return;
@@ -148,6 +149,7 @@ export function AppShell() {
     selectedObjectId,
     selectedEventId,
     appMode,
+    playMode,
     triggerLive,
     undo,
     redo,

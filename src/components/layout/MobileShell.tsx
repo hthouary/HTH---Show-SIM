@@ -45,6 +45,31 @@ function LanguageSwitch() {
   );
 }
 
+/** Game / Pro experience toggle (compact) for the mobile menu. */
+function PlayModeSwitch() {
+  const playMode = useShowStore((s) => s.playMode);
+  const setPlayMode = useShowStore((s) => s.setPlayMode);
+  const t = useT();
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-400">{t('playmode.title')}</span>
+      <div className="ml-auto flex items-center rounded-md border border-ink-700 bg-ink-850 p-0.5">
+        {(['game', 'pro'] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setPlayMode(m)}
+            className={`rounded px-2.5 py-1 text-xs font-semibold ${
+              playMode === m ? 'bg-accent-magenta/20 text-accent-magenta' : 'text-slate-500'
+            }`}
+          >
+            {t(`playmode.${m}`)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Build / Show mode toggle (compact) for the mobile menu. */
 function ModeSwitch() {
   const appMode = useShowStore((s) => s.appMode);
@@ -111,6 +136,7 @@ function MobileMenu({ onClose, onLoad, onImport }: { onClose: () => void; onLoad
         <Item icon="redo" label={t('action.redo')} onClick={act(redo)} disabled={!canRedo} />
         <div className="my-1 h-px bg-ink-700/70" />
         <div className="flex flex-col gap-2 px-2 py-2">
+          <PlayModeSwitch />
           <ModeSwitch />
           <LanguageSwitch />
         </div>
