@@ -12,6 +12,18 @@ import { HelpModal } from '../ui/HelpModal';
 import { usePlaybackClock } from '../../utils/usePlaybackClock';
 import { useIsMobile } from '../../utils/useIsMobile';
 import { useShowStore } from '../../store/useShowStore';
+import type { ShowEventType } from '../../types/show';
+
+/** Keyboard → live pad triggers (Show mode). */
+const LIVE_KEYS: Record<string, ShowEventType> = {
+  '1': 'flame_burst',
+  '2': 'co2_burst',
+  '3': 'confetti_burst',
+  '4': 'smoke_burst',
+  '5': 'light_strobe',
+  '6': 'laser_on',
+  '7': 'blackout',
+};
 
 /** Desktop layout: top bar, left/center/right columns, and a mode-dependent
  *  bottom dock — the timeline in Show mode, the build toolbar in Build mode. */
@@ -42,6 +54,8 @@ export function AppShell() {
   const pasteClipboard = useShowStore((s) => s.pasteClipboard);
   const selectedObjectId = useShowStore((s) => s.selectedObjectId);
   const selectedEventId = useShowStore((s) => s.selectedEventId);
+  const appMode = useShowStore((s) => s.appMode);
+  const triggerLive = useShowStore((s) => s.triggerLive);
   const undo = useShowStore((s) => s.undo);
   const redo = useShowStore((s) => s.redo);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
@@ -100,6 +114,12 @@ export function AppShell() {
       }
 
       if (typing) return;
+      // Live pads: 1–7 fire instant FX in Show mode.
+      if (appMode === 'show' && LIVE_KEYS[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        triggerLive(LIVE_KEYS[e.key]);
+        return;
+      }
       if (e.code === 'Space') {
         e.preventDefault();
         togglePlay();
@@ -127,6 +147,8 @@ export function AppShell() {
     pasteClipboard,
     selectedObjectId,
     selectedEventId,
+    appMode,
+    triggerLive,
     undo,
     redo,
     setGizmoMode,

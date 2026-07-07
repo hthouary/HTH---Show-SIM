@@ -145,6 +145,59 @@ function SkyControls() {
   );
 }
 
+const LIVE_PADS: { type: import('../../types/show').ShowEventType; icon: IconName; hotkey: string; color: string }[] = [
+  { type: 'flame_burst', icon: 'flame', hotkey: '1', color: '#ff7b1c' },
+  { type: 'co2_burst', icon: 'snow', hotkey: '2', color: '#bfe3ff' },
+  { type: 'confetti_burst', icon: 'party', hotkey: '3', color: '#e64bd6' },
+  { type: 'smoke_burst', icon: 'cloud', hotkey: '4', color: '#9fb0c8' },
+  { type: 'light_strobe', icon: 'sparkles', hotkey: '5', color: '#ffffff' },
+  { type: 'laser_on', icon: 'laser', hotkey: '6', color: '#39ff14' },
+  { type: 'blackout', icon: 'stop', hotkey: '7', color: '#f43f5e' },
+];
+
+/**
+ * Live pads (VJ mode): tap / press 1–7 to fire FX at the playhead in real time.
+ * REC also stamps every trigger into the timeline on "Live" lanes, so a live
+ * performance becomes a recorded show.
+ */
+function LivePads() {
+  const appMode = useShowStore((s) => s.appMode);
+  const trigger = useShowStore((s) => s.triggerLive);
+  const rec = useShowStore((s) => s.liveRecord);
+  const toggleRec = useShowStore((s) => s.toggleLiveRecord);
+  const t = useT();
+  if (appMode !== 'show') return null;
+  return (
+    <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-ink-700/70 bg-ink-900/85 p-1.5 backdrop-blur sm:gap-1.5">
+      <span className="hidden px-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 md:inline">
+        {t('live.title')}
+      </span>
+      {LIVE_PADS.map((p) => (
+        <button
+          key={p.type}
+          onPointerDown={() => trigger(p.type)}
+          className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-lg border border-ink-700 bg-ink-850 transition-transform hover:border-ink-500 active:scale-90 sm:h-11 sm:w-11"
+          style={{ color: p.color }}
+          title={`${t(`evt.${p.type}`)} (${p.hotkey})`}
+        >
+          <Icon name={p.icon} size={16} />
+          <span className="hidden font-mono text-[8px] text-slate-600 sm:block">{p.hotkey}</span>
+        </button>
+      ))}
+      <button
+        onClick={toggleRec}
+        className={`ml-1 flex h-10 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-bold sm:h-11 ${
+          rec ? 'border-rose-500/60 bg-rose-500/15 text-rose-300' : 'border-ink-700 bg-ink-850 text-slate-500 hover:text-slate-300'
+        }`}
+        title={t('live.rec.title')}
+      >
+        <span className={`h-2.5 w-2.5 rounded-full ${rec ? 'animate-pulse bg-rose-500' : 'bg-slate-600'}`} />
+        REC
+      </button>
+    </div>
+  );
+}
+
 function ViewportOverlay({
   bloom,
   onToggleBloom,
@@ -367,6 +420,7 @@ export function SceneViewport() {
       </Canvas>
       <ViewportOverlay bloom={bloom} onToggleBloom={() => setBloom((b) => !b)} />
       {appMode === 'show' && <HypeMeter />}
+      <LivePads />
     </div>
   );
 }

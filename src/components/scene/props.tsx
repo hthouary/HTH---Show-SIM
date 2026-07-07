@@ -352,6 +352,14 @@ const SKIN = ['#c9976f', '#a97c53', '#8a5f3d', '#6b452c', '#e0b48f', '#553524'];
 /** Trouser tones — jeans, blacks, khakis. */
 const PANTS = ['#33404f', '#2a3542', '#23262c', '#3d3a33', '#40484f', '#1f232a'];
 
+/** Festival cup colours (beer, soft drinks, water). */
+const CUP_COLORS = ['#e5533d', '#f2f2f0', '#ffd23f', '#3da9f5'];
+/** Crowd wander bounds (local units, before object scale). */
+const CROWD_MINX = -(CROWD_COLS / 2) * 0.8 - 0.6;
+const CROWD_MAXX = (CROWD_COLS / 2) * 0.8 + 0.6;
+const CROWD_MINZ = -0.6;
+const CROWD_MAXZ = CROWD_ROWS * 0.8 + 0.6;
+
 interface Person {
   x: number;
   z: number;
@@ -366,6 +374,16 @@ interface Person {
   side: 1 | -1;
   phone: boolean;
   rotY: number;
+  /** Behaviour: dance in place, or wander around the field. */
+  kind: 'dance' | 'walk';
+  /** Holding a drink / snack (the cup periodically lifts to the mouth). */
+  drink: boolean;
+  cup: string;
+  // Walker state (mutated in place each frame).
+  tx: number;
+  tz: number;
+  speed: number;
+  pause: number;
 }
 
 /**
@@ -381,6 +399,7 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
   const armDownRef = useRef<THREE.InstancedMesh>(null);
   const armRef = useRef<THREE.InstancedMesh>(null);
   const phoneRef = useRef<THREE.InstancedMesh>(null);
+  const cupRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   const phoneMat = useMemo(
@@ -409,7 +428,10 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     const arr: Person[] = [];
     for (let r = 0; r < CROWD_ROWS; r++) {
       for (let c = 0; c < CROWD_COLS; c++) {
-        const armUp = Math.random() < 0.32;
+        // ~15% wander around (off to the bar, the loos, meeting friends);
+        // the rest dance in place. Walkers keep both arms down.
+        const kind: Person['kind'] = Math.random() < 0.15 ? 'walk' : 'dance';
+        const armUp = kind === 'dance' && Math.random() < 0.32;
         arr.push({
           x: (c - CROWD_COLS / 2) * 0.8 + (Math.random() - 0.5) * 0.45,
           z: r * 0.8 + (Math.random() - 0.5) * 0.4,
@@ -424,6 +446,13 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
           side: Math.random() < 0.5 ? 1 : -1,
           phone: armUp && Math.random() < 0.7,
           rotY: Math.random() * Math.PI * 2,
+          kind,
+          drink: !armUp && Math.random() < 0.28,
+          cup: CUP_COLORS[Math.floor(Math.random() * CUP_COLORS.length)],
+          tx: CROWD_MINX + Math.random() * (CROWD_MAXX - CROWD_MINX),
+          tz: CROWD_MINZ + Math.random() * (CROWD_MAXZ - CROWD_MINZ),
+          speed: 0.35 + Math.random() * 0.35,
+          pause: Math.random() * 3,
         });
       }
     }
@@ -431,6 +460,7 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
   }, []);
   const arms = useMemo(() => people.filter((p) => p.armUp), [people]);
   const phones = useMemo(() => arms.filter((p) => p.phone), [arms]);
+  const drinkers = useMemo(() => people.filter((p) => p.drink), [people]);
 
   // Per-person clothing / skin / trouser colours (set once).
   useEffect(() => {
@@ -450,14 +480,19 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
       c.set(p.cloth);
       armRef.current?.setColorAt(i, c);
     });
-    for (const ref of [bodyRef, headRef, legRef, armDownRef, armRef]) {
+    drinkers.forEach((p, i) => {
+      c.set(p.cup);
+      cupRef.current?.setColorAt(i, c);
+    });
+    for (const ref of [bodyRef, headRef, legRef, armDownRef, armRef, cupRef]) {
       if (ref.current?.instanceColor) ref.current.instanceColor.needsUpdate = true;
     }
-  }, [people, arms]);
+  }, [people, arms, drinkers]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!bodyRef.current || !headRef.current || !legRef.current || !armDownRef.current) return;
     const t = clock.elapsedTime;
+    const dt = Math.min(delta, 0.1);
     const st = useShowStore.getState();
     const playing = st.isPlaying;
     const level = audioEngine.level;
@@ -471,10 +506,33 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
 
     let ai = 0;
     let pi = 0;
+    let ci = 0;
     for (let i = 0; i < CROWD_TOTAL; i++) {
       const p = people[i];
-      const bob = Math.abs(Math.sin(t * 3.1 * p.energy + p.phase)) * amp * p.energy;
-      const sway = Math.sin(t * 0.9 + p.phase) * 0.03;
+
+      // Walkers drift toward a waypoint, pause a while, then pick a new one.
+      let walkBob = 0;
+      if (p.kind === 'walk') {
+        if (p.pause > 0) {
+          p.pause -= dt;
+        } else {
+          const dx = p.tx - p.x;
+          const dz = p.tz - p.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 0.15) {
+            p.tx = CROWD_MINX + Math.random() * (CROWD_MAXX - CROWD_MINX);
+            p.tz = CROWD_MINZ + Math.random() * (CROWD_MAXZ - CROWD_MINZ);
+            p.pause = Math.random() < 0.5 ? 1.5 + Math.random() * 4 : 0;
+          } else {
+            p.x += (dx / d) * p.speed * dt;
+            p.z += (dz / d) * p.speed * dt;
+            walkBob = Math.abs(Math.sin(t * 7 * p.speed + p.phase)) * 0.035;
+          }
+        }
+      }
+
+      const bob = p.kind === 'walk' ? walkBob : Math.abs(Math.sin(t * 3.1 * p.energy + p.phase)) * amp * p.energy;
+      const sway = p.kind === 'walk' ? 0 : Math.sin(t * 0.9 + p.phase) * 0.03;
       const x = p.x + sway;
       const rotY = p.rotY * 0.06;
 
@@ -537,6 +595,21 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
           pi++;
         }
       }
+
+      // Drink / snack in hand — periodically lifted to the mouth.
+      if (p.drink && cupRef.current) {
+        const lift = Math.max(0, Math.sin(t * 0.7 + p.phase * 3) - 0.72) / 0.28;
+        dummy.position.set(
+          x + p.side * (0.24 - lift * 0.1) * p.wide,
+          p.h * 0.55 + lift * p.h * 0.3 + bob,
+          p.z + 0.08,
+        );
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        cupRef.current.setMatrixAt(ci, dummy.matrix);
+        ci++;
+      }
     }
     bodyRef.current.instanceMatrix.needsUpdate = true;
     headRef.current.instanceMatrix.needsUpdate = true;
@@ -544,6 +617,7 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
     armDownRef.current.instanceMatrix.needsUpdate = true;
     if (armRef.current) armRef.current.instanceMatrix.needsUpdate = true;
     if (phoneRef.current) phoneRef.current.instanceMatrix.needsUpdate = true;
+    if (cupRef.current) cupRef.current.instanceMatrix.needsUpdate = true;
   });
 
   return (
@@ -572,6 +646,11 @@ export function CrowdBlock({ object }: { object: SceneObject }) {
       {/* Phone screens (bright, tone-mapping bypassed → they glow at night). */}
       <instancedMesh ref={phoneRef} args={[undefined, phoneMat, phones.length]} frustumCulled={false} raycast={ignoreRaycast}>
         <planeGeometry args={[0.07, 0.13]} />
+      </instancedMesh>
+      {/* Drink cups (lifted to the mouth now and then). */}
+      <instancedMesh ref={cupRef} args={[undefined, undefined, drinkers.length]} frustumCulled={false} raycast={ignoreRaycast}>
+        <cylinderGeometry args={[0.032, 0.026, 0.09, 8]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.5} metalness={0} />
       </instancedMesh>
       {/* Keep the object's colour relevant: a faint tinted ground disc under the crowd. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, CROWD_ROWS * 0.4]} raycast={ignoreRaycast}>
@@ -811,10 +890,18 @@ export function BarStand({ object }: { object: SceneObject }) {
   const banner = useMemo(() => getBannerTexture('BAR', '#ffffff', object.color), [object.color]);
   const canvasMat = useMemo(() => new THREE.MeshStandardMaterial({ color: CANVAS_WHITE, roughness: 0.92, side: THREE.DoubleSide }), []);
   const postMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5f666f', metalness: 0.7, roughness: 0.4 }), []);
+  // Hip marquee roof: a stretched 4-slope pyramid, closed on every side.
+  const roofGeo = useMemo(() => {
+    const g = new THREE.ConeGeometry(1, 1, 4);
+    g.rotateY(Math.PI / 4);
+    g.scale(3.75 / Math.SQRT1_2, 0.85, 1.6 / Math.SQRT1_2);
+    return g;
+  }, []);
   useEffect(() => () => {
     canvasMat.dispose();
     postMat.dispose();
-  }, [canvasMat, postMat]);
+    roofGeo.dispose();
+  }, [canvasMat, postMat, roofGeo]);
   const W = 3.5; // half length
   return (
     <group>
@@ -826,13 +913,8 @@ export function BarStand({ object }: { object: SceneObject }) {
           </mesh>
         )),
       )}
-      {/* Gabled canvas roof (two pitched panels meeting at a ridge) */}
-      <mesh position={[0, 1.2, 0.78]} rotation={[0.52, 0, 0]} material={canvasMat}>
-        <planeGeometry args={[W * 2 + 0.5, 1.85]} />
-      </mesh>
-      <mesh position={[0, 1.2, -0.78]} rotation={[-0.52, 0, 0]} material={canvasMat}>
-        <planeGeometry args={[W * 2 + 0.5, 1.85]} />
-      </mesh>
+      {/* Hip canvas roof — four slopes meeting at the ridge, closed all round */}
+      <mesh position={[0, 1.49, 0]} geometry={roofGeo} material={canvasMat} />
       {/* Canvas back wall + gable ends */}
       <mesh position={[0, 0.05, -1.42]} material={canvasMat}>
         <planeGeometry args={[W * 2 + 0.3, 2.1]} />
@@ -879,7 +961,16 @@ export function BarStand({ object }: { object: SceneObject }) {
 export function FoodStand({ object }: { object: SceneObject }) {
   const banner = useMemo(() => getBannerTexture('FOOD', '#ffffff', object.color), [object.color]);
   const canvasMat = useMemo(() => new THREE.MeshStandardMaterial({ color: CANVAS_WHITE, roughness: 0.92, side: THREE.DoubleSide }), []);
-  useEffect(() => () => canvasMat.dispose(), [canvasMat]);
+  const roofGeo = useMemo(() => {
+    const g = new THREE.ConeGeometry(1, 1, 4);
+    g.rotateY(Math.PI / 4);
+    g.scale(1.75 / Math.SQRT1_2, 0.7, 1.25 / Math.SQRT1_2);
+    return g;
+  }, []);
+  useEffect(() => () => {
+    canvasMat.dispose();
+    roofGeo.dispose();
+  }, [canvasMat, roofGeo]);
   return (
     <group>
       {/* Corner posts */}
@@ -891,13 +982,8 @@ export function FoodStand({ object }: { object: SceneObject }) {
           </mesh>
         )),
       )}
-      {/* Gabled canvas roof + valance */}
-      <mesh position={[0, 1.12, 0.58]} rotation={[0.55, 0, 0]} material={canvasMat}>
-        <planeGeometry args={[3.2, 1.4]} />
-      </mesh>
-      <mesh position={[0, 1.12, -0.58]} rotation={[-0.55, 0, 0]} material={canvasMat}>
-        <planeGeometry args={[3.2, 1.4]} />
-      </mesh>
+      {/* Hip canvas roof + valance */}
+      <mesh position={[0, 1.35, 0]} geometry={roofGeo} material={canvasMat} />
       <mesh position={[0, 0.88, 1.08]} material={canvasMat}>
         <planeGeometry args={[3.2, 0.24]} />
       </mesh>

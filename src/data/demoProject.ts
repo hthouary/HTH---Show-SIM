@@ -49,8 +49,8 @@ export function createDemoProject(): Project {
   treeSpots.forEach(([x, z], i) => add(createSceneObject('tree', { name: `Tree ${i + 1}`, position: [x, 2.3, z] })));
   add(createSceneObject('bush', { name: 'Bush L', position: [-16, 0.5, 7] }));
   add(createSceneObject('bush', { name: 'Bush R', position: [16, 0.5, 8] }));
-  add(createSceneObject('bar_stand', { name: 'Bar West', position: [-15, 1.3, 14], rotation: [0, Math.PI / 2.4, 0] }));
-  add(createSceneObject('food_stand', { name: 'Food East', position: [15, 1.25, 15], rotation: [0, -Math.PI / 2.4, 0] }));
+  add(createSceneObject('bar_stand', { name: 'Bar West', position: [-15, 1.3, 14], rotation: [0, Math.PI / 2, 0] }));
+  add(createSceneObject('food_stand', { name: 'Food East', position: [15, 1.25, 15], rotation: [0, -Math.PI / 2, 0] }));
   add(createSceneObject('tent', { name: 'Chill Tent', position: [-19, 1.25, 25] }));
   for (let i = 0; i < 4; i++) {
     add(createSceneObject('portaloo', { name: `WC ${i + 1}`, position: [18 + i * 2.4, 1.15, 27], rotation: [0, Math.PI, 0] }));

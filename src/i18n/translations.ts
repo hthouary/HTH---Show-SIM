@@ -270,6 +270,8 @@ const en: Dict = {
   'sky.day': 'Day brightness',
   'sky.night': 'Night brightness',
   'sky.fog': 'Ground fog',
+  'live.title': 'Live',
+  'live.rec.title': 'Record live triggers into the timeline (Live lanes)',
   'sky.presetDay': 'Day',
   'sky.presetNight': 'Night',
 
@@ -637,6 +639,8 @@ const fr: Dict = {
   'sky.day': 'Luminosité jour',
   'sky.night': 'Luminosité nuit',
   'sky.fog': 'Brouillard au sol',
+  'live.title': 'Live',
+  'live.rec.title': 'Enregistrer les déclenchements live dans la timeline (pistes Live)',
   'sky.presetDay': 'Jour',
   'sky.presetNight': 'Nuit',
 

@@ -18,6 +18,7 @@ const round = (n: number) => Math.round(n * 10) / 10;
 export function StageScene() {
   const objects = useShowStore((s) => s.project.objects);
   const events = useShowStore((s) => s.project.events);
+  const liveEvents = useShowStore((s) => s.liveEvents);
   const placementType = useShowStore((s) => s.placementType);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
   const high = useShowStore((s) => s.quality === 'high');
@@ -43,7 +44,9 @@ export function StageScene() {
   useFrame((_, delta) => {
     const store = useShowStore.getState();
     const t = store.currentTime;
-    const state = evaluateEvents(events, t);
+    // Live-pad triggers layer on top of the programmed timeline.
+    const all = liveEvents.length ? [...events, ...liveEvents] : events;
+    const state = evaluateEvents(all, t);
     showRef.current = state;
 
     const black = 1 - state.blackout;

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppMode, Lane, Project, SceneObject, SceneObjectType, ShowEvent, Vec3 } from '../types/show';
+import type { AppMode, Lane, Project, SceneObject, SceneObjectType, ShowEvent, ShowEventType, Vec3 } from '../types/show';
 import { createId, createSceneObject, defaultEventParams, eventCategory, isFxEmitter, isLightFixture } from '../data/catalog';
 import { createDemoProject } from '../data/demoProject';
 import { audioEngine } from '../utils/audio';
@@ -50,6 +50,10 @@ interface ShowState {
   toasts: Toast[];
   /** Copied timeline events, ready to paste at the playhead. */
   clipboard: ShowEvent[];
+  /** Transient live-pad events (VJ triggers), layered over the timeline. */
+  liveEvents: ShowEvent[];
+  /** When on, live triggers are also written into the timeline ("Live" lanes). */
+  liveRecord: boolean;
   /** Current working mode: build (construction sandbox) or show (timeline). */
   appMode: AppMode;
   /** Whether the welcome / help guide overlay is open. */
@@ -165,6 +169,11 @@ interface ShowState {
   /** Stamp a ready-made event group at the playhead. */
   addTemplate: (key: TemplateKey) => void;
 
+  // ---- Live pads (VJ mode) ---------------------------------------------
+  /** Fire an instant FX at the playhead (records it too when REC is on). */
+  triggerLive: (type: ShowEventType) => void;
+  toggleLiveRecord: () => void;
+
   // ---- Playback actions ----------------------------------------------
   play: () => void;
   pause: () => void;
@@ -242,6 +251,17 @@ const BUILD_DEFAULTS: BuildPrefs = {
 };
 
 const BUILD_KEY = 'showforge.build';
+
+/** Duration + params of each live-pad trigger. */
+const LIVE_DEFS: Partial<Record<ShowEventType, { duration: number; params: Record<string, unknown> }>> = {
+  flame_burst: { duration: 1.2, params: { intensity: 1.3 } },
+  co2_burst: { duration: 1.2, params: { intensity: 1.3 } },
+  confetti_burst: { duration: 1.2, params: { intensity: 1.5 } },
+  smoke_burst: { duration: 4, params: { intensity: 1.2 } },
+  light_strobe: { duration: 1.0, params: { rate: 14, color: '#ffffff' } },
+  laser_on: { duration: 2.5, params: { color: '#39ff14', pattern: 'circular', speed: 70 } },
+  blackout: { duration: 0.8, params: {} },
+};
 
 function initialBuildPrefs(): BuildPrefs {
   try {
@@ -329,6 +349,8 @@ export const useShowStore = create<ShowState>((set, get) => {
     toasts: [],
     clipboard: [],
     showResult: null,
+    liveEvents: [],
+    liveRecord: false,
     appMode: buildPrefs.appMode,
     helpOpen: false,
     placementType: null,
@@ -1058,6 +1080,57 @@ export const useShowStore = create<ShowState>((set, get) => {
       get().pushToast('success', tr('toast.template', { name: baseName }));
     },
 
+    // ------------------------------------------------------------------ Live
+    triggerLive: (type) => {
+      const def = LIVE_DEFS[type];
+      if (!def) return;
+      const s = get();
+      const t = Math.max(0, Math.min(s.currentTime, s.duration));
+      const ev: ShowEvent = {
+        id: createId('live'),
+        lane: '__live',
+        time: Math.max(0, t - 0.02),
+        duration: def.duration,
+        type,
+        targets: [],
+        params: { ...def.params },
+      };
+      // Prune triggers that are long finished (or stranded ahead after a seek).
+      const keep = s.liveEvents.filter((e) => e.time + e.duration > t - 4 && e.time < t + 1);
+      set({ liveEvents: [...keep, ev] });
+
+      // REC: also stamp the trigger into the timeline on a "Live" lane, keeping
+      // its exact timing (spill onto Live 2 / Live 3… when the lane is busy).
+      if (s.liveRecord) {
+        record('live-rec');
+        set((st) => {
+          let lanes = st.project.lanes;
+          const liveLanes = lanes.filter((l) => l.name === 'Live' || l.name.startsWith('Live '));
+          let laneId: string | null = null;
+          let start: number | null = null;
+          for (const l of liveLanes) {
+            const others = st.project.events.filter((e) => e.lane === l.id).map((e) => ({ time: e.time, duration: e.duration }));
+            const at = firstFreeStart(others, def.duration, st.duration, ev.time);
+            if (at != null && Math.abs(at - ev.time) < 0.3) {
+              laneId = l.id;
+              start = at;
+              break;
+            }
+          }
+          if (laneId == null) {
+            const nl: Lane = { id: createId('lane'), name: liveLanes.length ? `Live ${liveLanes.length + 1}` : 'Live' };
+            lanes = [...lanes, nl];
+            laneId = nl.id;
+            start = Math.min(ev.time, Math.max(0, st.duration - def.duration));
+          }
+          const recEv: ShowEvent = { ...ev, id: createId('evt'), lane: laneId, time: start as number };
+          return { project: { ...st.project, lanes, events: [...st.project.events, recEv], updatedAt: Date.now() } };
+        });
+      }
+    },
+
+    toggleLiveRecord: () => set((s) => ({ liveRecord: !s.liveRecord })),
+
     // -------------------------------------------------------------- Playback
     play: () => {
       const s = get();
@@ -1079,7 +1152,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     stop: () => {
       if (get().hasAudio) audioEngine.pause();
       audioEngine.seek(0);
-      set({ isPlaying: false, currentTime: 0 });
+      set({ isPlaying: false, currentTime: 0, liveEvents: [] });
     },
     seek: (time) => {
       const d = get().duration;
@@ -1199,6 +1272,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         currentTime: 0,
         duration: 90,
         hasAudio: false,
+        liveEvents: [],
         past: [],
         future: [],
       });
@@ -1245,6 +1319,7 @@ export const useShowStore = create<ShowState>((set, get) => {
         currentTime: 0,
         duration: project.settings.duration,
         hasAudio: false,
+        liveEvents: [],
         past: [],
         future: [],
       });
