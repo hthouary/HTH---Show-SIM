@@ -3,12 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "ShowForge Studio — a web-based 3D stage & show simulator for designing music and light shows.",
+  "description": "ShowForge Studio \u2014 a web-based 3D stage & show simulator for designing music and light shows.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.3",
@@ -29,6 +31,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "vitest": "^4.1.10"
   }
 }

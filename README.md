@@ -21,6 +21,7 @@ npm run dev      # start the dev server  →  http://localhost:5173
 npm run build    # type-check + production build into dist/
 npm run preview  # serve the production build locally
 npm run lint     # type-check only (tsc --noEmit)
+npm run test     # unit tests (Vitest) — event engine, timeline, collisions…
 ```
 
 Open the dev URL and you'll land straight in **“Demo Festival Intro”** — a full
@@ -205,7 +206,6 @@ ground with a controllable day/night sky.
 
 **Medium term**
 
-- Unit tests (Vitest) for the event engine, project sanitisation and the store.
 - Bundle export (project + audio) as a single shareable file.
 - Performance: lazy-load the 3D layer, particle pooling and a dedicated perf mode.
 
