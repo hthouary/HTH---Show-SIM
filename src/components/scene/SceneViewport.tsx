@@ -218,6 +218,7 @@ function ViewportOverlay({
   const selectedId = useShowStore((s) => s.selectedObjectId);
   const selectedCount = useShowStore((s) => s.selectedObjectIds.length);
   const gizmoMode = useShowStore((s) => s.gizmoMode);
+  const gizmoActive = useShowStore((s) => s.gizmoActive);
   const setGizmoMode = useShowStore((s) => s.setGizmoMode);
   const duplicateSelection = useShowStore((s) => s.duplicateSelection);
   const deleteObject = useShowStore((s) => s.deleteObject);
@@ -284,16 +285,23 @@ function ViewportOverlay({
             </button>
           </div>
         ) : selectedId ? (
-          <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-ink-700/70 bg-ink-900/90 p-1 shadow-lg backdrop-blur">
-            <span className="hidden px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
-              {selectedCount > 1 ? t('sel.count', { n: selectedCount }) : t('sel.selected')}
-            </span>
-            <ActionBtn active={gizmoMode === 'translate'} icon="hand" label={t('viewport.move')} onClick={() => setGizmoMode('translate')} />
-            <ActionBtn active={gizmoMode === 'rotate'} icon="rotate" label={t('viewport.rotate')} onClick={() => setGizmoMode('rotate')} />
-            <span className="mx-0.5 h-6 w-px bg-ink-700" />
-            <ActionBtn icon="copy" label={t('action.duplicate')} onClick={duplicateSelection} />
-            <ActionBtn icon="trash" label={t('action.delete')} danger onClick={() => selectedId && deleteObject(selectedId)} />
-            <ActionBtn icon="close" label={t('inspector.deselect')} onClick={() => selectObject(null)} />
+          <div className="flex flex-col items-center gap-1">
+            <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-ink-700/70 bg-ink-900/90 p-1 shadow-lg backdrop-blur">
+              <span className="hidden px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
+                {selectedCount > 1 ? t('sel.count', { n: selectedCount }) : t('sel.selected')}
+              </span>
+              <ActionBtn active={gizmoActive && gizmoMode === 'translate'} icon="hand" label={t('viewport.move')} onClick={() => setGizmoMode('translate')} />
+              <ActionBtn active={gizmoActive && gizmoMode === 'rotate'} icon="rotate" label={t('viewport.rotate')} onClick={() => setGizmoMode('rotate')} />
+              <span className="mx-0.5 h-6 w-px bg-ink-700" />
+              <ActionBtn icon="copy" label={t('action.duplicate')} onClick={duplicateSelection} />
+              <ActionBtn icon="trash" label={t('action.delete')} danger onClick={() => selectedId && deleteObject(selectedId)} />
+              <ActionBtn icon="close" label={t('inspector.deselect')} onClick={() => selectObject(null)} />
+            </div>
+            {gizmoActive && gizmoMode === 'translate' && (
+              <span className="whitespace-nowrap rounded-md border border-accent-cyan/30 bg-ink-900/85 px-2 py-0.5 text-[10px] text-accent-cyan/90 backdrop-blur">
+                {t('viewport.moveHint')}
+              </span>
+            )}
           </div>
         ) : buildMode ? (
           <div className="pointer-events-none flex items-center gap-2 rounded-lg border border-ink-700/70 bg-ink-900/80 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur">

@@ -79,6 +79,10 @@ interface ShowState {
   sound: boolean;
   /** Active transform gizmo mode. */
   gizmoMode: 'translate' | 'rotate';
+  /** Whether a transform tool is engaged (you pressed Move / Rotate). Until then
+   *  a selected object can only be inspected — not dragged — so nothing moves by
+   *  accident. */
+  gizmoActive: boolean;
   /** Render quality: 'high' enables reflections / shadows, 'low' keeps it light. */
   quality: 'low' | 'high';
   /** UI language. */
@@ -150,6 +154,10 @@ interface ShowState {
   cancelPlacement: () => void;
   toggleCollisions: () => void;
   setGizmoMode: (mode: 'translate' | 'rotate') => void;
+  /** Disengage the transform tool (back to inspect-only). */
+  stopTransform: () => void;
+  /** Commit an already-resolved position verbatim (no re-snap) — used by drag. */
+  placeObject: (id: string, position: Vec3) => void;
   toggleQuality: () => void;
   setBpm: (bpm: number) => void;
   toggleSnap: () => void;
@@ -393,6 +401,7 @@ export const useShowStore = create<ShowState>((set, get) => {
     workLight: buildPrefs.workLight,
     sound: buildPrefs.sound,
     gizmoMode: 'translate',
+    gizmoActive: false,
     quality: 'high',
     language: initialLanguage(),
     snapEnabled: true,
@@ -425,7 +434,8 @@ export const useShowStore = create<ShowState>((set, get) => {
         };
       }),
 
-    setGizmoMode: (mode) => set({ gizmoMode: mode }),
+    setGizmoMode: (mode) => set({ gizmoMode: mode, gizmoActive: true }),
+    stopTransform: () => set({ gizmoActive: false }),
     setLanguage: (lang) => {
       try {
         localStorage.setItem('showforge.lang', lang);
@@ -519,6 +529,35 @@ export const useShowStore = create<ShowState>((set, get) => {
       });
     },
 
+    // Commit a position that the caller already resolved (snap/collision), so the
+    // object lands exactly where it was previewed — no second pass that could
+    // nudge it off by a hair on release.
+    placeObject: (id, position) => {
+      record('move');
+      set((s) => {
+        const obj = s.project.objects.find((o) => o.id === id);
+        if (!obj) return {};
+        const delta: Vec3 = [position[0] - obj.position[0], position[1] - obj.position[1], position[2] - obj.position[2]];
+        if (delta[0] === 0 && delta[1] === 0 && delta[2] === 0) return {};
+        const shift = (o: SceneObject): SceneObject => ({
+          ...o,
+          position: [o.position[0] + delta[0], o.position[1] + delta[1], o.position[2] + delta[2]],
+          target: [o.target[0] + delta[0], o.target[1] + delta[1], o.target[2] + delta[2]],
+        });
+        return {
+          project: {
+            ...s.project,
+            objects: s.project.objects.map((o) => {
+              if (o.id === id) return { ...o, position, target: [obj.target[0] + delta[0], obj.target[1] + delta[1], obj.target[2] + delta[2]] };
+              if (o.parent === id) return shift(o);
+              return o;
+            }),
+            updatedAt: Date.now(),
+          },
+        };
+      });
+    },
+
     deleteObject: (id) => {
       record('delete');
       set((s) => {
@@ -567,7 +606,16 @@ export const useShowStore = create<ShowState>((set, get) => {
     },
 
     selectObject: (id) =>
-      set({ selectedObjectId: id, selectedObjectIds: id ? [id] : [], selectedEventId: null, selectedEventIds: [] }),
+      // Selecting a different object drops back to inspect-only, so you have to
+      // press Move/Rotate again before it can be transformed (nothing moves by
+      // accident just from selecting).
+      set((s) => ({
+        selectedObjectId: id,
+        selectedObjectIds: id ? [id] : [],
+        selectedEventId: null,
+        selectedEventIds: [],
+        gizmoActive: s.selectedObjectId === id ? s.gizmoActive : false,
+      })),
 
     toggleSelectObject: (id) =>
       set((s) => {
@@ -578,6 +626,7 @@ export const useShowStore = create<ShowState>((set, get) => {
           selectedObjectId: has ? (ids[ids.length - 1] ?? null) : id,
           selectedEventId: null,
           selectedEventIds: [],
+          gizmoActive: false,
         };
       }),
 

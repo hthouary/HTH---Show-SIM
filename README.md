@@ -115,7 +115,11 @@ A switch in the top bar flips between the two ways you work on a show:
   object shows on-screen **Move / Rotate / Duplicate / Delete / Deselect**
   buttons, and Build mode shows a step-by-step hint — no shortcuts to memorise.
 - **3D viewport** — orbit / zoom / pan, a grey concrete ground to build on, ACES
-  tone-mapping and bloom; click to select, transform gizmo on the selection, or just grab it and drag it across the floor.
+  tone-mapping and bloom. **Selection & movement are deliberate**: a clean click
+  selects (dragging the camera never selects or nudges anything), and an object
+  only moves once you press **Move** — then you grab-and-slide it across the floor
+  (Shift = raise / lower), or press **Rotate** for the ring gizmo. It drops
+  exactly where you release it, and only the selected object ever moves.
 - **Sky & daylight** — a gradient sky with a sun that rises and sets: blue day
   with neutral daylight and **real sun shadows** (High quality), dark-blue night
   with **stars, a moon and cool moonlight** so the rig pops. A Sky panel offers
@@ -157,7 +161,8 @@ A switch in the top bar flips between the two ways you work on a show:
 - **Fixture groups** — save any multi-selection as a named **group** (in the
   Scene panel), then re-select every member in one click — no more picking
   lights one by one. Add an action with a group selected and it targets exactly
-  those fixtures.
+  those fixtures, and an action's **“Applies to”** picker has a one-click chip per
+  group to add / remove all its fixtures at once.
 - **Action transitions** — toggle **Transition** on a light / laser clip and it
   **crossfades** into the next block on its lane instead of snapping: colour,
   brightness and beam movement all interpolate (e.g. an up-sweep glides into a

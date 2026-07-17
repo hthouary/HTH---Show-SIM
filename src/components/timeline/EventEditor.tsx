@@ -150,19 +150,53 @@ function TransitionEditor({ event }: { event: ShowEvent }) {
 function TargetPicker({ event }: { event: ShowEvent }) {
   const update = useShowStore((s) => s.updateEvent);
   const objects = useShowStore((s) => s.project.objects);
+  const groups = useShowStore((s) => s.project.groups ?? []);
   const tr = useT();
   const category = eventCategory(event.type);
   if (category === 'global') return null;
 
   const eligible = eligibleObjects(category, objects);
+  const eligibleIds = new Set(eligible.map((o) => o.id));
   const isAll = event.targets.length === 0;
   const setTargets = (targets: string[]) => update(event.id, { targets });
   const toggle = (id: string) =>
     setTargets(event.targets.includes(id) ? event.targets.filter((t) => t !== id) : [...event.targets, id]);
 
+  // Groups that hold at least one fixture this event can drive. Clicking one
+  // adds all its eligible members (or removes them when they're already all in).
+  const usableGroups = groups
+    .map((g) => ({ ...g, ids: g.members.filter((m) => eligibleIds.has(m)) }))
+    .filter((g) => g.ids.length > 0);
+  const toggleGroup = (ids: string[]) => {
+    const set = new Set(event.targets);
+    const allIn = ids.every((id) => set.has(id));
+    if (allIn) ids.forEach((id) => set.delete(id));
+    else ids.forEach((id) => set.add(id));
+    setTargets([...set]);
+  };
+
   return (
     <div>
       <div className="field-label">{tr('event.appliesTo')}</div>
+      {usableGroups.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {usableGroups.map((g) => {
+            const allIn = !isAll && g.ids.every((id) => event.targets.includes(id));
+            return (
+              <button
+                key={g.id}
+                onClick={() => toggleGroup(g.ids)}
+                title={tr('event.group')}
+                className={`chip flex items-center gap-1 ${allIn ? 'bg-amber-400/20 text-amber-200' : 'bg-ink-700 text-amber-200/70'}`}
+              >
+                <Icon name="box" size={11} />
+                <span className="max-w-[8rem] truncate">{g.name}</span>
+                <span className="opacity-60">{g.ids.length}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-ink-700/70 bg-ink-850 p-2">
         <button
           onClick={() => setTargets([])}
