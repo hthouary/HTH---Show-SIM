@@ -7,8 +7,9 @@ import { assignLanes } from '../utils/timeline';
  * the app feels alive immediately (the "wow" moment): full rig + a sequence of
  * color washes, strobes, lasers, smoke, flames, CO2, confetti and a blackout.
  *
- * Events are authored as a flat list (each targets all eligible objects) and
- * then laid out onto non-overlapping lanes by `assignLanes`.
+ * Events are authored as a flat list and then laid out onto non-overlapping
+ * lanes by `assignLanes`. Light cues target specific fixture groups so only the
+ * named lights come up on each cue (the two drops deliberately hit everything).
  */
 export function createDemoProject(): Project {
   const objects: SceneObject[] = [];
@@ -59,21 +60,30 @@ export function createDemoProject(): Project {
   add(createSceneObject('flag_pole', { name: 'Flag R', position: [7.6, 2.5, 6.9], color: '#e64bd6' }));
 
   // ---- 8 moving heads on the front truss (4 spot + 4 wash) ---------------
+  // Keep each fixture group so timeline actions can target them individually.
   const headX = [-6, -3.6, -1.2, 1.2, 3.6, 6];
+  const spots: SceneObject[] = [];
+  const washes: SceneObject[] = [];
+  const beams: SceneObject[] = [];
   for (let i = 0; i < 4; i++) {
     const x = [-5.4, -1.8, 1.8, 5.4][i];
-    add(createSceneObject('moving_head_spot', { name: `Spot ${i + 1}`, position: [x, 6.1, -1], target: [x * 0.4, 0, 4], color: '#22d3ee', beamAngle: 6 }));
+    spots.push(add(createSceneObject('moving_head_spot', { name: `Spot ${i + 1}`, position: [x, 6.1, -1], target: [x * 0.4, 0, 4], color: '#22d3ee', beamAngle: 6 })));
   }
   for (let i = 0; i < 4; i++) {
     const x = [-3.6, -1.2, 1.2, 3.6][i];
-    add(createSceneObject('moving_head_wash', { name: `Wash ${i + 1}`, position: [x, 6.1, -4.4], target: [x * 0.5, 0, 3], color: '#8b5cf6', beamAngle: 18 }));
+    washes.push(add(createSceneObject('moving_head_wash', { name: `Wash ${i + 1}`, position: [x, 6.1, -4.4], target: [x * 0.5, 0, 3], color: '#8b5cf6', beamAngle: 18 })));
   }
 
   // ---- 4 beam lights spread across the rig ------------------------------
   for (let i = 0; i < 4; i++) {
     const x = headX[[0, 1, 4, 5][i]];
-    add(createSceneObject('beam_light', { name: `Beam ${i + 1}`, position: [x, 6.2, -2.5], target: [x * 0.2, 0, 2], color: i % 2 === 0 ? '#3b82f6' : '#e64bd6', beamAngle: 3.5 }));
+    beams.push(add(createSceneObject('beam_light', { name: `Beam ${i + 1}`, position: [x, 6.2, -2.5], target: [x * 0.2, 0, 2], color: i % 2 === 0 ? '#3b82f6' : '#e64bd6', beamAngle: 3.5 })));
   }
+
+  const spotIds = spots.map((o) => o.id);
+  const washIds = washes.map((o) => o.id);
+  const beamIds = beams.map((o) => o.id);
+  const allLights = [...spotIds, ...washIds, ...beamIds];
 
   // ---- 2 lasers ---------------------------------------------------------
   add(createSceneObject('laser', { name: 'Laser L', position: [-6, 5.6, -3], target: [2, 1.5, 10], color: '#39ff14' }));
@@ -90,30 +100,42 @@ export function createDemoProject(): Project {
   add(createSceneObject('confetti_cannon', { name: 'Confetti R', position: [5, 0.42, 0] }));
 
   // ---- Timeline events (flat; assignLanes lays them onto lanes) ---------
+  // Light actions target specific fixture groups (spots / washes / beams), so
+  // each cue lights only the fixtures it names — different lights do different
+  // things, instead of the whole rig flashing on together. FX / laser / LED
+  // events keep an empty target list (they apply to all their eligible gear).
   const events: ShowEvent[] = [];
-  const ev = (time: number, duration: number, type: ShowEvent['type'], params: Record<string, unknown> = {}) => {
-    events.push({ id: createId('evt'), lane: '', time, duration, type, targets: [], params });
+  const ev = (
+    time: number,
+    duration: number,
+    type: ShowEvent['type'],
+    params: Record<string, unknown> = {},
+    targets: string[] = [],
+  ) => {
+    events.push({ id: createId('evt'), lane: '', time, duration, type, targets, params });
   };
 
-  // Intro — deep blue wash + LED pulse building energy
+  // Intro — deep blue wash on the WASH heads only (spots + beams stay dark)
   ev(0, 90, 'led_color', { color: '#1b2a55' });
-  ev(0, 14, 'light_color', { color: '#2a4cff' });
-  ev(0, 14, 'light_intensity', { intensity: 0.5 });
-  ev(2, 12, 'light_sweep', { pattern: 'wave', speed: 22 });
+  ev(0, 14, 'light_color', { color: '#2a4cff' }, washIds);
+  ev(0, 14, 'light_intensity', { intensity: 0.6 }, washIds);
+  ev(2, 12, 'light_sweep', { pattern: 'wave', speed: 22 }, washIds);
   ev(4, 8, 'smoke_burst', { intensity: 1 });
 
-  // Build — color shift + first laser teaser
-  ev(14, 16, 'light_color', { color: '#22d3ee' });
-  ev(14, 16, 'light_intensity', { intensity: 0.9 });
-  ev(14, 16, 'light_sweep', { pattern: 'circular', speed: 40 });
+  // Build — hand over to the SPOTS (cyan, circular), with a green BEAM teaser
+  ev(14, 16, 'light_color', { color: '#22d3ee' }, spotIds);
+  ev(14, 16, 'light_intensity', { intensity: 1.0 }, spotIds);
+  ev(14, 16, 'light_sweep', { pattern: 'circular', speed: 40 }, spotIds);
+  ev(22, 6, 'light_color', { color: '#39ff14' }, beamIds);
+  ev(22, 6, 'light_intensity', { intensity: 1.2 }, beamIds);
   ev(16, 14, 'led_pulse', { color: '#22d3ee', rate: 1 });
   ev(20, 8, 'laser_on', { color: '#39ff14', pattern: 'up_down', speed: 25 });
 
-  // Drop 1 at ~30s — strobe + flames + confetti + magenta
-  ev(28, 2, 'light_strobe', { rate: 9, color: '#ffffff' });
-  ev(30, 18, 'light_color', { color: '#e64bd6' });
-  ev(30, 18, 'light_intensity', { intensity: 1.3 });
-  ev(30, 18, 'light_sweep', { pattern: 'circular', speed: 60 });
+  // Drop 1 at ~30s — everything hits: magenta across the WHOLE rig + FX
+  ev(28, 2, 'light_strobe', { rate: 9, color: '#ffffff' }, allLights);
+  ev(30, 18, 'light_color', { color: '#e64bd6' }, allLights);
+  ev(30, 18, 'light_intensity', { intensity: 1.3 }, allLights);
+  ev(30, 18, 'light_sweep', { pattern: 'circular', speed: 60 }, allLights);
   ev(30, 1.2, 'flame_burst', { intensity: 1.2 });
   ev(30, 1.2, 'confetti_burst', { intensity: 1.4 });
   ev(30, 18, 'led_pulse', { color: '#e64bd6', rate: 1.3 });
@@ -121,19 +143,19 @@ export function createDemoProject(): Project {
   ev(36, 1, 'co2_burst', { intensity: 1 });
   ev(42, 1.2, 'flame_burst', { intensity: 1 });
 
-  // Breakdown at ~48s — calmer violet, smoke rolls in
-  ev(48, 14, 'light_color', { color: '#8b5cf6' });
-  ev(48, 14, 'light_intensity', { intensity: 0.7 });
-  ev(48, 14, 'light_sweep', { pattern: 'left_right', speed: 26 });
+  // Breakdown at ~48s — calmer violet on the WASHES only, smoke rolls in
+  ev(48, 14, 'light_color', { color: '#8b5cf6' }, washIds);
+  ev(48, 14, 'light_intensity', { intensity: 0.7 }, washIds);
+  ev(48, 14, 'light_sweep', { pattern: 'left_right', speed: 26 }, washIds);
   ev(48, 12, 'smoke_burst', { intensity: 1 });
   ev(48, 14, 'led_color', { color: '#2b1a55' });
   ev(50, 10, 'laser_on', { color: '#22d3ee', pattern: 'wave', speed: 40 });
 
-  // Drop 2 at ~62s — full energy, amber + strobe + CO2
-  ev(60, 2, 'light_strobe', { rate: 10, color: '#ffffff' });
-  ev(62, 16, 'light_color', { color: '#ff7b1c' });
-  ev(62, 16, 'light_intensity', { intensity: 1.4 });
-  ev(62, 16, 'light_sweep', { pattern: 'circular', speed: 72 });
+  // Drop 2 at ~62s — full energy again: amber across the whole rig + strobe + CO2
+  ev(60, 2, 'light_strobe', { rate: 10, color: '#ffffff' }, allLights);
+  ev(62, 16, 'light_color', { color: '#ff7b1c' }, allLights);
+  ev(62, 16, 'light_intensity', { intensity: 1.4 }, allLights);
+  ev(62, 16, 'light_sweep', { pattern: 'circular', speed: 72 }, allLights);
   ev(62, 16, 'led_pulse', { color: '#ff7b1c', rate: 1.5 });
   ev(62, 16, 'laser_on', { color: '#39ff14', pattern: 'circular', speed: 78 });
   ev(62, 1.2, 'co2_burst', { intensity: 1.3 });
@@ -141,9 +163,9 @@ export function createDemoProject(): Project {
   ev(68, 1.2, 'confetti_burst', { intensity: 1.6 });
   ev(72, 1, 'co2_burst', { intensity: 1 });
 
-  // Outro — cool down then blackout finish
-  ev(78, 10, 'light_color', { color: '#2a4cff' });
-  ev(78, 10, 'light_intensity', { intensity: 0.6 });
+  // Outro — cool down on the WASHES only, then blackout finish
+  ev(78, 10, 'light_color', { color: '#2a4cff' }, washIds);
+  ev(78, 10, 'light_intensity', { intensity: 0.6 }, washIds);
   ev(78, 10, 'led_color', { color: '#101a3a' });
   ev(80, 6, 'smoke_burst', { intensity: 0.8 });
   ev(88, 2, 'blackout', {});
