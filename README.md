@@ -84,9 +84,13 @@ src/
    re-renders during playback. UI bits that show time (playhead, clock) subscribe
    to the store directly and stay cheap and isolated.
 
-Two event semantics: **state events** (color/intensity) persist until the next
-one; **window events** (strobe/sweep/bursts/blackout) are active only for their
-clip duration.
+Lights are **action-scoped**: a fixture is dark unless an action *targeting it*
+is currently running. Any light action (colour / intensity / strobe / movement)
+cues its targets on for the length of its clip — using the explicit brightness
+of an intensity action, or full otherwise — then they go dark again. Actions can
+target **specific fixtures** (add an action with lights selected and it targets
+just those) or **all** of them. Other window events (bursts / blackout) are
+active only for their clip duration; the laser/LED colour still persists.
 
 ---
 

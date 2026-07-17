@@ -18,31 +18,6 @@ describe('hexToRgb', () => {
   });
 });
 
-describe('evaluateEvents — state events persist', () => {
-  it('light_color applies from its start time onward (even after its clip ends)', () => {
-    const events = [ev('light_color', 2, 2, { color: '#ff0000' })];
-    expect(evaluateEvents(events, 1).light.color).toEqual([1, 1, 1]);
-    expect(evaluateEvents(events, 3).light.color).toEqual([1, 0, 0]);
-    expect(evaluateEvents(events, 30).light.color).toEqual([1, 0, 0]);
-  });
-
-  it('last write wins between successive colors', () => {
-    const events = [ev('light_color', 0, 2, { color: '#ff0000' }), ev('light_color', 5, 2, { color: '#0000ff' })];
-    expect(evaluateEvents(events, 2).light.color).toEqual([1, 0, 0]);
-    expect(evaluateEvents(events, 6).light.color).toEqual([0, 0, 1]);
-  });
-
-  it('targeted color goes to the override, not the global state', () => {
-    const events = [ev('light_color', 0, 1, { color: '#ff0000' }, ['spot1'])];
-    const s = evaluateEvents(events, 1);
-    expect(s.light.color).toEqual([1, 1, 1]);
-    expect(s.overrides.spot1.color).toEqual([1, 0, 0]);
-    // lightForObject merges the override over the global light
-    expect(lightForObject(s, 'spot1').color).toEqual([1, 0, 0]);
-    expect(lightForObject(s, 'other').color).toEqual([1, 1, 1]);
-  });
-});
-
 describe('evaluateEvents — lights only lit during their action', () => {
   it('is dark before, lit during, and dark again after an intensity clip', () => {
     const events = [ev('light_intensity', 2, 2, { intensity: 1 }, ['spot1'])];
@@ -51,9 +26,35 @@ describe('evaluateEvents — lights only lit during their action', () => {
     expect(lightForObject(evaluateEvents(events, 5), 'spot1').intensity).toBe(0);
   });
 
-  it('a colour clip alone never lights a fixture (intensity stays 0)', () => {
-    const events = [ev('light_color', 0, 4, { color: '#ff0000' }, ['spot1'])];
-    expect(lightForObject(evaluateEvents(events, 2), 'spot1').intensity).toBe(0);
+  it('a colour action cues the light on (at full) only during its clip', () => {
+    const events = [ev('light_color', 2, 2, { color: '#ff0000' }, ['spot1'])];
+    // before: dark + neutral
+    expect(lightForObject(evaluateEvents(events, 1), 'spot1').intensity).toBe(0);
+    expect(lightForObject(evaluateEvents(events, 1), 'spot1').color).toEqual([1, 1, 1]);
+    // during: lit in the action colour
+    const during = lightForObject(evaluateEvents(events, 3), 'spot1');
+    expect(during.intensity).toBe(1);
+    expect(during.color).toEqual([1, 0, 0]);
+    // after: dark again + colour reverted
+    const after = lightForObject(evaluateEvents(events, 30), 'spot1');
+    expect(after.intensity).toBe(0);
+    expect(after.color).toEqual([1, 1, 1]);
+  });
+
+  it('only the targeted fixture lights up, not the others', () => {
+    const events = [ev('light_intensity', 0, 4, { intensity: 1 }, ['spot1'])];
+    const s = evaluateEvents(events, 2);
+    expect(lightForObject(s, 'spot1').intensity).toBe(1);
+    // a fixture the action does not target stays dark
+    expect(lightForObject(s, 'spot2').intensity).toBe(0);
+    // the global "all" state is untouched by a targeted action
+    expect(s.light.intensity).toBe(0);
+  });
+
+  it('an "all" action lights every fixture', () => {
+    const events = [ev('light_intensity', 0, 4, { intensity: 0.8 })];
+    const s = evaluateEvents(events, 2);
+    expect(lightForObject(s, 'anything').intensity).toBe(0.8);
   });
 });
 

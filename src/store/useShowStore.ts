@@ -827,14 +827,40 @@ export const useShowStore = create<ShowState>((set, get) => {
         return;
       }
       record('add-event');
-      const type = 'light_color' as ShowEvent['type'];
+      // Seed the new action from the current scene selection so it only drives
+      // the gear you picked — a light lights up only during an action that
+      // targets it, not every fixture. With nothing selected we fall back to a
+      // light action targeting "all" (empty targets), as before.
+      const selIds = s.selectedObjectIds.length
+        ? s.selectedObjectIds
+        : s.selectedObjectId
+          ? [s.selectedObjectId]
+          : [];
+      const selObjs = s.project.objects.filter((o) => selIds.includes(o.id));
+      const first = selObjs[0];
+      let type: ShowEvent['type'] = 'light_color';
+      let targets: string[] = [];
+      if (first) {
+        if (first.type === 'laser') {
+          type = 'laser_on';
+          targets = selObjs.filter((o) => o.type === 'laser').map((o) => o.id);
+        } else if (first.type === 'led_screen') {
+          type = 'led_color'; // LED events are global in the engine (no per-screen targeting)
+        } else if (isFxEmitter(first.type)) {
+          type = 'smoke_burst';
+          targets = selObjs.filter((o) => isFxEmitter(o.type)).map((o) => o.id);
+        } else if (isLightFixture(first.type)) {
+          type = 'light_color';
+          targets = selObjs.filter((o) => isLightFixture(o.type)).map((o) => o.id);
+        }
+      }
       const event: ShowEvent = {
         id: createId('evt'),
         lane: laneId,
         time: start,
         duration: Math.min(dur, Math.max(0.2, s.duration - start)),
         type,
-        targets: [],
+        targets,
         params: defaultEventParams(type),
       };
       set((st) => ({

@@ -165,6 +165,14 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
   const state = defaultState(t);
   const sorted = [...events].sort((a, b) => a.time - b.time);
 
+  // A light is lit ONLY while an action targeting it is active. Any light action
+  // (colour / intensity / strobe / movement) "cues" its targets on for its span;
+  // a fixture with no active action stays dark. `explicitIntensity` records a
+  // level set by a light_intensity action; other actions light at full.
+  const litTargets = new Set<string>();
+  const explicitIntensity: Record<string, number> = {};
+  const cue = (tg: string) => litTargets.add(tg);
+
   for (const ev of sorted) {
     const started = ev.time <= t;
     const active = t >= ev.time && t < ev.time + Math.max(ev.duration, 0.0001);
@@ -173,16 +181,24 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
     const targets = targetsOf(ev);
 
     switch (ev.type) {
-      // ---- State events (persist after start) -----------------------------
+      // ---- Light actions (window-scoped: lit only while active) ------------
       case 'light_color': {
-        if (started) for (const tg of targets) ensureOverride(state, tg).color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+        // A colour action lights its targets (at full unless an intensity action
+        // also runs) in that colour, for the length of its clip.
+        if (active)
+          for (const tg of targets) {
+            ensureOverride(state, tg).color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+            cue(tg);
+          }
         break;
       }
       case 'light_intensity': {
-        // Intensity is WINDOW-scoped: a light is only lit for the length of its
-        // clip and goes dark again after — it doesn't stay on once its action
-        // ends. (Colour still persists, but is only visible while lit.)
-        if (active) for (const tg of targets) ensureOverride(state, tg).intensity = num(ev.params, 'intensity', 1);
+        // Sets the explicit brightness of its targets while active.
+        if (active)
+          for (const tg of targets) {
+            explicitIntensity[tg] = num(ev.params, 'intensity', 1);
+            cue(tg);
+          }
         break;
       }
       case 'laser_color': {
@@ -213,7 +229,8 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
             target.strobe = gate;
             target.strobing = true;
             target.color = color;
-            target.intensity = Math.max(target.intensity ?? 1, 1.3);
+            explicitIntensity[tg] = Math.max(explicitIntensity[tg] ?? 0, 1.3);
+            cue(tg);
           }
         }
         break;
@@ -232,7 +249,10 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
             move.repeat = ev.params['repeat'] === 'pingpong' ? 'pingpong' : 'loop';
             move.since = ev.time;
           }
-          for (const tg of targets) ensureOverride(state, tg).move = { ...move };
+          for (const tg of targets) {
+            ensureOverride(state, tg).move = { ...move };
+            cue(tg);
+          }
         }
         break;
       }
@@ -305,6 +325,15 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
         break;
       }
     }
+  }
+
+  // Apply brightness to every cued light: the explicit level from an intensity /
+  // strobe action, or full (1) for a colour / movement action that gives none.
+  // Untargeted, un-cued fixtures keep the default intensity 0 — i.e. stay dark.
+  const DEFAULT_ON = 1;
+  for (const tg of litTargets) {
+    const target = tg === 'all' ? state.light : ensureOverride(state, tg);
+    target.intensity = explicitIntensity[tg] ?? DEFAULT_ON;
   }
 
   return state;
