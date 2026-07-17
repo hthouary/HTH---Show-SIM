@@ -154,6 +154,15 @@ A switch in the top bar flips between the two ways you work on a show:
   distribute evenly, duplicate, **array** (N copies along an offset) and
   **mirror** the selection across the stage centre. Move the whole selection
   with the gizmo. `Ctrl/Cmd+D` duplicates.
+- **Fixture groups** — save any multi-selection as a named **group** (in the
+  Scene panel), then re-select every member in one click — no more picking
+  lights one by one. Add an action with a group selected and it targets exactly
+  those fixtures.
+- **Action transitions** — toggle **Transition** on a light / laser clip and it
+  **crossfades** into the next block on its lane instead of snapping: colour,
+  brightness and beam movement all interpolate (e.g. an up-sweep glides into a
+  down-sweep). A clip with no follower **fades its lights out** gently. The fade
+  time is adjustable.
 - **Rigging** — clip a light / laser onto a truss (drop it straight onto the
   structure, or pick a parent in the inspector); moving the structure carries
   its rigged fixtures with it.

@@ -8,7 +8,7 @@ import {
   isFxEmitter,
   isLightFixture,
 } from '../../data/catalog';
-import type { EventCategory, MovementPreset, SceneObject, ShowEvent } from '../../types/show';
+import type { EventCategory, EventTransition, MovementPreset, SceneObject, ShowEvent } from '../../types/show';
 import { MOVEMENT_PRESETS } from '../../utils/movement';
 import { ColorField, NumberField, SelectField, SliderField } from '../ui/fields';
 import { Icon } from '../ui/Icon';
@@ -110,6 +110,40 @@ function ParamFields({ event }: { event: ShowEvent }) {
     default:
       return null;
   }
+}
+
+/** Action types that can crossfade into the next block (or fade out alone). */
+const TRANSITION_TYPES: ReadonlySet<string> = new Set(['light_color', 'light_intensity', 'light_sweep', 'laser_on']);
+
+/** Transition toggle + speed: crossfade this block into the next one on its lane. */
+function TransitionEditor({ event }: { event: ShowEvent }) {
+  const update = useShowStore((s) => s.updateEvent);
+  const tr = useT();
+  if (!TRANSITION_TYPES.has(event.type)) return null;
+
+  const on = event.transition?.enabled ?? false;
+  const duration = event.transition?.duration ?? 1.2;
+  const set = (patch: Partial<EventTransition>) => update(event.id, { transition: { enabled: on, duration, ...patch } });
+
+  return (
+    <div className="rounded-lg border border-ink-700/70 bg-ink-850 p-3">
+      <button
+        onClick={() => set({ enabled: !on })}
+        className={`flex w-full items-center gap-2 text-left text-xs font-semibold ${on ? 'text-accent-cyan' : 'text-slate-300'}`}
+      >
+        <span className={`grid h-4 w-7 place-items-start rounded-full px-0.5 transition-colors ${on ? 'bg-accent-cyan/70' : 'bg-ink-600'}`}>
+          <span className={`h-3 w-3 rounded-full bg-white transition-transform ${on ? 'translate-x-3' : ''}`} />
+        </span>
+        {tr('event.transition')}
+      </button>
+      {on && (
+        <div className="mt-2">
+          <SliderField label={tr('event.transition.speed')} value={duration} min={0.1} max={5} step={0.1} onChange={(v) => set({ duration: v })} />
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">{tr('event.transition.note')}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Multi-select of the objects an event applies to (empty = all). */
@@ -214,6 +248,8 @@ export function EventEditor({ event }: { event: ShowEvent }) {
         <div className="field-label">{tr('event.parameters')}</div>
         <ParamFields event={event} />
       </div>
+
+      <TransitionEditor event={event} />
 
       <div className="mt-1 flex gap-2 border-t border-ink-700/70 pt-3">
         <button className="btn flex-1" onClick={() => duplicate(event.id)}>

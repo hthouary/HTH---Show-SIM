@@ -125,6 +125,16 @@ interface ShowState {
   /** Rig an object onto a structure (or detach when parentId is null). */
   attachToParent: (childId: string, parentId: string | null) => void;
 
+  // ---- Groups (named selection sets) ----------------------------------
+  /** Save the current multi-selection as a named group. */
+  createGroup: (name?: string) => void;
+  /** Select every (still-existing) member of a group. */
+  selectGroup: (id: string) => void;
+  /** Replace a group's members with the current selection. */
+  setGroupToSelection: (id: string) => void;
+  renameGroup: (id: string, name: string) => void;
+  deleteGroup: (id: string) => void;
+
   // ---- Mode / build tools ---------------------------------------------
   setAppMode: (mode: AppMode) => void;
   setPlayMode: (mode: PlayMode) => void;
@@ -526,6 +536,10 @@ export const useShowStore = create<ShowState>((set, get) => {
             events: s.project.events.map((e) =>
               e.targets.some((t) => idSet.has(t)) ? { ...e, targets: e.targets.filter((t) => !idSet.has(t)) } : e,
             ),
+            // …and from any group that listed them.
+            groups: (s.project.groups ?? []).map((g) =>
+              g.members.some((m) => idSet.has(m)) ? { ...g, members: g.members.filter((m) => !idSet.has(m)) } : g,
+            ),
             updatedAt: Date.now(),
           },
           selectedObjectId: idSet.has(s.selectedObjectId ?? '') ? null : s.selectedObjectId,
@@ -722,6 +736,63 @@ export const useShowStore = create<ShowState>((set, get) => {
           objects: s.project.objects.map((o) => (o.id === childId ? { ...o, parent: parentId ?? undefined } : o)),
           updatedAt: Date.now(),
         },
+      }));
+    },
+
+    // ----------------------------------------------------------- Groups
+    createGroup: (name) => {
+      const s = get();
+      const members = s.selectedObjectIds.length ? [...s.selectedObjectIds] : s.selectedObjectId ? [s.selectedObjectId] : [];
+      if (members.length === 0) {
+        s.pushToast('info', tr('toast.groupNeedsSelection'));
+        return;
+      }
+      const groups = s.project.groups ?? [];
+      const grp = { id: createId('grp'), name: name?.trim() || tr('group.defaultName', { n: groups.length + 1 }), members };
+      record('create-group');
+      set((st) => ({ project: { ...st.project, groups: [...(st.project.groups ?? []), grp], updatedAt: Date.now() } }));
+      s.pushToast('success', tr('toast.groupCreated', { name: grp.name, n: members.length }));
+    },
+
+    selectGroup: (id) => {
+      const s = get();
+      const grp = (s.project.groups ?? []).find((g) => g.id === id);
+      if (!grp) return;
+      const ids = new Set(s.project.objects.map((o) => o.id));
+      const members = grp.members.filter((m) => ids.has(m));
+      if (members.length === 0) return;
+      set({ selectedObjectIds: members, selectedObjectId: members[members.length - 1], selectedEventId: null, selectedEventIds: [] });
+    },
+
+    setGroupToSelection: (id) => {
+      const s = get();
+      const members = s.selectedObjectIds.length ? [...s.selectedObjectIds] : s.selectedObjectId ? [s.selectedObjectId] : [];
+      if (members.length === 0) return;
+      record('update-group');
+      set((st) => ({
+        project: {
+          ...st.project,
+          groups: (st.project.groups ?? []).map((g) => (g.id === id ? { ...g, members } : g)),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    renameGroup: (id, name) => {
+      record('rename-group');
+      set((s) => ({
+        project: {
+          ...s.project,
+          groups: (s.project.groups ?? []).map((g) => (g.id === id ? { ...g, name: name.trim() || g.name } : g)),
+          updatedAt: Date.now(),
+        },
+      }));
+    },
+
+    deleteGroup: (id) => {
+      record('delete-group');
+      set((s) => ({
+        project: { ...s.project, groups: (s.project.groups ?? []).filter((g) => g.id !== id), updatedAt: Date.now() },
       }));
     },
 

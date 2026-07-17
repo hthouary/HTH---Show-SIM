@@ -34,6 +34,9 @@ export interface MoveState {
   spacing?: number;
   /** Absolute show time the action started (for local phase). */
   since?: number;
+  /** Transition: the movement to ease toward, and how far (0..1) we've eased. */
+  blendTo?: MoveState;
+  blendFactor?: number;
 }
 
 const STILL: MoveState = { pattern: 'fixed', speed: 0 };
@@ -118,6 +121,81 @@ function str(params: Record<string, unknown>, key: string, fallback: string): st
   return typeof v === 'string' ? v : fallback;
 }
 
+function lerp(a: number, b: number, k: number): number {
+  return a + (b - a) * k;
+}
+
+function lerpRgb(a: RGB, b: RGB, k: number): RGB {
+  return [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+}
+
+/** Smooth ease-in-out so a transition starts and lands gently. */
+function easeInOut(k: number): number {
+  const x = Math.min(1, Math.max(0, k));
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * How far (0..1) a transitioning block has eased toward the next, at time `t`.
+ * The crossfade occupies the last `dur` seconds of the block; 0 before it, 1 at
+ * the block's end. Eased for a smooth ramp.
+ */
+function tailBlend(ev: ShowEvent, t: number, dur: number): number {
+  const d = Math.max(0.05, dur);
+  const start = ev.time + ev.duration - d;
+  if (t <= start) return 0;
+  return easeInOut((t - start) / d);
+}
+
+/** The next block of the same type on the same lane, at/after this one ends. */
+function nextOnLane(sorted: ShowEvent[], ev: ShowEvent): ShowEvent | null {
+  const end = ev.time + ev.duration - 0.001;
+  let best: ShowEvent | null = null;
+  for (const e of sorted) {
+    if (e === ev || e.lane !== ev.lane || e.type !== ev.type) continue;
+    if (e.time < end) continue;
+    if (!best || e.time < best.time) best = e;
+  }
+  return best;
+}
+
+/** Build a MoveState from a light_sweep event's params. */
+function moveFromSweep(ev: ShowEvent): MoveState {
+  const pattern = str(ev.params, 'pattern', 'wave') as MovementPreset;
+  const move: MoveState = { pattern, speed: num(ev.params, 'speed', 40) };
+  if (pattern === 'custom') {
+    const raw = ev.params['path'];
+    move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
+    move.tilt = num(ev.params, 'tilt', 90);
+    move.cycle = num(ev.params, 'cycle', 2);
+    move.amp = num(ev.params, 'amp', 50);
+    move.repeat = ev.params['repeat'] === 'pingpong' ? 'pingpong' : 'loop';
+    move.since = ev.time;
+  }
+  return move;
+}
+
+/** Build a MoveState from a laser_on event's params. */
+function moveFromLaser(ev: ShowEvent): MoveState {
+  const pattern = str(ev.params, 'pattern', 'fixed') as MovementPreset;
+  const move: MoveState = { pattern, speed: num(ev.params, 'speed', 0) };
+  if (pattern === 'custom') {
+    const raw = ev.params['path'];
+    move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
+    move.tilt = num(ev.params, 'tilt', 90);
+    move.count = num(ev.params, 'count', 40);
+    move.spacing = num(ev.params, 'spacing', 3);
+    move.since = ev.time;
+  }
+  return move;
+}
+
+/** The transition config of an event, if it's enabled. */
+function transitionOf(ev: ShowEvent): { duration: number } | null {
+  const tr = ev.transition;
+  return tr && tr.enabled ? { duration: tr.duration > 0 ? tr.duration : 1 } : null;
+}
+
 /** Smooth fade-in / hold / fade-out envelope for bursts. */
 function envelope(p: number): number {
   if (p <= 0 || p >= 1) return 0;
@@ -184,21 +262,46 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       // ---- Light actions (window-scoped: lit only while active) ------------
       case 'light_color': {
         // A colour action lights its targets (at full unless an intensity action
-        // also runs) in that colour, for the length of its clip.
-        if (active)
+        // also runs) in that colour, for the length of its clip. With transition
+        // on, it crossfades toward the next colour block near its end.
+        if (active) {
+          let color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+          const trn = transitionOf(ev);
+          if (trn) {
+            const bf = tailBlend(ev, t, trn.duration);
+            if (bf > 0) {
+              const next = nextOnLane(sorted, ev);
+              const nextColor = next ? hexToRgb(str(next.params, 'color', '#ffffff')) : color;
+              color = lerpRgb(color, nextColor, bf);
+            }
+          }
           for (const tg of targets) {
-            ensureOverride(state, tg).color = hexToRgb(str(ev.params, 'color', '#ffffff'));
+            ensureOverride(state, tg).color = color;
             cue(tg);
           }
+        }
         break;
       }
       case 'light_intensity': {
-        // Sets the explicit brightness of its targets while active.
-        if (active)
+        // Sets the explicit brightness of its targets while active. With
+        // transition on, it eases toward the next block's level — or to 0 (a
+        // smooth fade-out) when this block has no follower.
+        if (active) {
+          let value = num(ev.params, 'intensity', 1);
+          const trn = transitionOf(ev);
+          if (trn) {
+            const bf = tailBlend(ev, t, trn.duration);
+            if (bf > 0) {
+              const next = nextOnLane(sorted, ev);
+              const nextValue = next ? num(next.params, 'intensity', 1) : 0;
+              value = lerp(value, nextValue, bf);
+            }
+          }
           for (const tg of targets) {
-            explicitIntensity[tg] = num(ev.params, 'intensity', 1);
+            explicitIntensity[tg] = value;
             cue(tg);
           }
+        }
         break;
       }
       case 'laser_color': {
@@ -237,17 +340,19 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       }
       case 'light_sweep': {
         // "Movement" event: sets the beam movement pattern + speed for its span.
+        // With transition on, it eases from this movement toward the next block's
+        // movement (or back to still if it's the last), so e.g. an up-sweep glides
+        // smoothly into a down-sweep instead of snapping.
         if (active) {
-          const pattern = str(ev.params, 'pattern', 'wave') as MovementPreset;
-          const move: MoveState = { pattern, speed: num(ev.params, 'speed', 40) };
-          if (pattern === 'custom') {
-            const raw = ev.params['path'];
-            move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
-            move.tilt = num(ev.params, 'tilt', 90);
-            move.cycle = num(ev.params, 'cycle', 2);
-            move.amp = num(ev.params, 'amp', 50);
-            move.repeat = ev.params['repeat'] === 'pingpong' ? 'pingpong' : 'loop';
-            move.since = ev.time;
+          const move = moveFromSweep(ev);
+          const trn = transitionOf(ev);
+          if (trn) {
+            const bf = tailBlend(ev, t, trn.duration);
+            if (bf > 0) {
+              const next = nextOnLane(sorted, ev);
+              move.blendTo = next ? moveFromSweep(next) : { ...STILL };
+              move.blendFactor = bf;
+            }
           }
           for (const tg of targets) {
             ensureOverride(state, tg).move = { ...move };
@@ -258,16 +363,19 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
       }
       case 'laser_on': {
         if (active) {
-          const intensity = envelope(local) * 0.5 + 0.5;
-          const pattern = str(ev.params, 'pattern', 'fixed') as MovementPreset;
-          const move: MoveState = { pattern, speed: num(ev.params, 'speed', 0) };
-          if (pattern === 'custom') {
-            const raw = ev.params['path'];
-            move.path = Array.isArray(raw) ? (raw as number[][]) : undefined;
-            move.tilt = num(ev.params, 'tilt', 90);
-            move.count = num(ev.params, 'count', 40);
-            move.spacing = num(ev.params, 'spacing', 3);
-            move.since = ev.time;
+          let intensity = envelope(local) * 0.5 + 0.5;
+          const move = moveFromLaser(ev);
+          const trn = transitionOf(ev);
+          if (trn) {
+            const bf = tailBlend(ev, t, trn.duration);
+            if (bf > 0) {
+              const next = nextOnLane(sorted, ev);
+              // Ease the fan movement toward the next laser cue (or hold shape);
+              // with no follower, fade the beams out smoothly instead of cutting.
+              move.blendTo = next ? moveFromLaser(next) : { ...STILL };
+              move.blendFactor = bf;
+              if (!next) intensity = intensity * (1 - bf);
+            }
           }
           const c = ev.params['color'];
           for (const tg of targets) {

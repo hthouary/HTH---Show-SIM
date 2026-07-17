@@ -109,6 +109,25 @@ export interface Lane {
   name: string;
 }
 
+/** A named set of scene objects (lights / FX) selected together in one click. */
+export interface SceneGroup {
+  id: string;
+  name: string;
+  /** Object ids that belong to the group. */
+  members: string[];
+}
+
+/**
+ * Optional crossfade on an action block. When enabled, the block eases into the
+ * next block on the same lane over `duration` seconds (colour, intensity and
+ * beam movement all interpolate). A block with no follower fades its lights
+ * out smoothly instead. `duration` is the fade time in seconds (lower = faster).
+ */
+export interface EventTransition {
+  enabled: boolean;
+  duration: number;
+}
+
 export interface ShowEvent {
   id: string;
   /** Lane (row) this block sits on. */
@@ -121,6 +140,8 @@ export interface ShowEvent {
   /** Object ids this action applies to. Empty = all eligible objects. */
   targets: string[];
   params: Record<string, unknown>;
+  /** Optional crossfade into the next block (or a smooth fade-out if alone). */
+  transition?: EventTransition;
 }
 
 export interface ProjectSettings {
@@ -148,6 +169,8 @@ export interface Project {
   /** Timeline lanes (rows), in display order. */
   lanes: Lane[];
   events: ShowEvent[];
+  /** Named selection sets of lights / FX for quick multi-select. */
+  groups?: SceneGroup[];
   settings: ProjectSettings;
 }
 

@@ -58,6 +58,44 @@ describe('evaluateEvents — lights only lit during their action', () => {
   });
 });
 
+describe('evaluateEvents — transitions crossfade between blocks', () => {
+  const withTrans = (e: ShowEvent, duration: number): ShowEvent => ({ ...e, transition: { enabled: true, duration } });
+
+  it('intensity crossfades toward the next block near the end', () => {
+    const a = withTrans(ev('light_intensity', 0, 4, { intensity: 1 }, ['s1']), 2);
+    const b = ev('light_intensity', 4, 4, { intensity: 0 }, ['s1']);
+    const events = [a, b];
+    // Before the tail (t=1): full value, no blend yet.
+    expect(lightForObject(evaluateEvents(events, 1), 's1').intensity).toBe(1);
+    // At the block's very end (t=4⁻): fully eased to the next block's 0.
+    expect(lightForObject(evaluateEvents(events, 3.999), 's1').intensity).toBeCloseTo(0, 1);
+    // Mid-tail (t=3): between the two.
+    const mid = lightForObject(evaluateEvents(events, 3), 's1').intensity;
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+  });
+
+  it('a lone transitioning block fades its lights out to zero', () => {
+    const events = [withTrans(ev('light_intensity', 0, 4, { intensity: 1 }, ['s1']), 2)];
+    expect(lightForObject(evaluateEvents(events, 1), 's1').intensity).toBe(1);
+    expect(lightForObject(evaluateEvents(events, 3.999), 's1').intensity).toBeCloseTo(0, 1);
+  });
+
+  it('movement carries a blend toward the next sweep', () => {
+    const a = withTrans(ev('light_sweep', 0, 4, { pattern: 'up_down', speed: 40 }, ['s1']), 2);
+    const b = ev('light_sweep', 4, 4, { pattern: 'left_right', speed: 40 }, ['s1']);
+    const move = lightForObject(evaluateEvents([a, b], 3.5), 's1').move;
+    expect(move.blendTo?.pattern).toBe('left_right');
+    expect(move.blendFactor).toBeGreaterThan(0);
+  });
+
+  it('does nothing when transition is off', () => {
+    const a = ev('light_intensity', 0, 4, { intensity: 1 }, ['s1']);
+    const b = ev('light_intensity', 4, 4, { intensity: 0 }, ['s1']);
+    expect(lightForObject(evaluateEvents([a, b], 3.999), 's1').intensity).toBe(1);
+  });
+});
+
 describe('evaluateEvents — window events only live inside their span', () => {
   it('strobe flags strobing only while active', () => {
     const events = [ev('light_strobe', 1, 2, { rate: 10 })];

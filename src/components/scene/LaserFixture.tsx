@@ -147,19 +147,39 @@ export function LaserFixture({ object }: { object: SceneObject }) {
     dotMat.opacity = on ? 1 : 0.12;
 
     // --- Fan presets (fixed / circular / wave / …) --------------------------
+    // A transition eases each beam direction (and the whole-fan swing) from this
+    // movement toward the next cue's, so the fan morphs smoothly between shapes.
     const seed = movementSeed(object.position);
+    const bt = lm.blendTo;
+    const bf = bt && lm.blendFactor ? lm.blendFactor : 0;
     for (let i = 0; i < BEAM_COUNT; i++) {
       const g = beamRefs.current[i];
       if (!g) continue;
       const d = laserBeamDir(lm.pattern, lm.speed, state.time, i, BEAM_COUNT, seed);
-      tmpDir.set(d[0], d[1], d[2]);
+      let dx = d[0];
+      let dy = d[1];
+      let dz = d[2];
+      if (bf > 0 && bt && bt.pattern !== 'custom') {
+        const d2 = laserBeamDir(bt.pattern, bt.speed, state.time, i, BEAM_COUNT, seed);
+        dx += (d2[0] - dx) * bf;
+        dy += (d2[1] - dy) * bf;
+        dz += (d2[2] - dz) * bf;
+      }
+      tmpDir.set(dx, dy, dz);
       g.quaternion.setFromUnitVectors(UP_DOWN, tmpDir);
     }
     if (moveRef.current) {
       moveRef.current.visible = on && !isCustom;
       const fan = laserFanRot(lm.pattern, lm.speed, state.time, seed);
-      moveRef.current.rotation.x = fan.x;
-      moveRef.current.rotation.z = fan.z;
+      let fx = fan.x;
+      let fz = fan.z;
+      if (bf > 0 && bt && bt.pattern !== 'custom') {
+        const fan2 = laserFanRot(bt.pattern, bt.speed, state.time, seed);
+        fx += (fan2.x - fx) * bf;
+        fz += (fan2.z - fz) * bf;
+      }
+      moveRef.current.rotation.x = fx;
+      moveRef.current.rotation.z = fz;
     }
 
     // --- Custom chain: N beams following the drawn path one after another ---

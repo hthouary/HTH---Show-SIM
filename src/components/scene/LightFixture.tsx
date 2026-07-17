@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject, SceneObjectType } from '../../types/show';
-import { lightForObject } from '../../utils/events';
+import { lightForObject, type MoveState } from '../../utils/events';
 import { customMovement, movementRotation, movementSeed } from '../../utils/movement';
 import { useShowStore } from '../../store/useShowStore';
 import { useShowStateRef } from './ShowStateContext';
@@ -12,6 +12,13 @@ import { ignoreRaycast } from './interaction';
 
 const UP_DOWN = new THREE.Vector3(0, -1, 0);
 const tmpColor = new THREE.Color();
+
+/** Beam swing rotation for a movement state (custom path or a preset). */
+function moveRot(m: MoveState, t: number, seed: number): { x: number; z: number } {
+  return m.pattern === 'custom'
+    ? customMovement(m.path, m.tilt ?? 90, m.cycle ?? 2, m.speed, m.amp ?? 50, m.repeat ?? 'loop', t, m.since ?? 0)
+    : movementRotation(m.pattern, m.speed, t, seed);
+}
 
 type FixtureKind = 'head' | 'strobe' | 'blinder';
 
@@ -133,14 +140,20 @@ export function LightFixture({ object }: Props) {
     }
 
     // Beam movement — driven by timeline "Movement" events (pattern + speed).
+    // A transition eases the swing from this movement toward the next one.
     if (swingRef.current) {
       const m = light.move;
-      const mv =
-        m.pattern === 'custom'
-          ? customMovement(m.path, m.tilt ?? 90, m.cycle ?? 2, m.speed, m.amp ?? 50, m.repeat ?? 'loop', state.time, m.since ?? 0)
-          : movementRotation(m.pattern, m.speed, state.time, movementSeed(object.position));
-      swingRef.current.rotation.z = mv.z;
-      swingRef.current.rotation.x = mv.x;
+      const seed = movementSeed(object.position);
+      const mv = moveRot(m, state.time, seed);
+      let rx = mv.x;
+      let rz = mv.z;
+      if (m.blendTo && m.blendFactor) {
+        const to = moveRot(m.blendTo, state.time, seed);
+        rx += (to.x - rx) * m.blendFactor;
+        rz += (to.z - rz) * m.blendFactor;
+      }
+      swingRef.current.rotation.z = rz;
+      swingRef.current.rotation.x = rx;
     }
   });
 

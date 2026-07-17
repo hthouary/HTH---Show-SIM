@@ -111,6 +111,18 @@ export function sanitizeProject(p: Project): Project {
   }));
   const { lanes, events } = migrateTimeline({ lanes: (p as Project).lanes, events: rawEvents });
 
+  // Keep only well-formed groups whose members still point at real objects.
+  const objIds = new Set(objects.map((o) => o.id));
+  const groups = Array.isArray(p.groups)
+    ? p.groups
+        .filter((g): g is NonNullable<typeof g> => !!g && typeof g.name === 'string' && Array.isArray(g.members))
+        .map((g) => ({
+          id: typeof g.id === 'string' ? g.id : createId('grp'),
+          name: g.name,
+          members: g.members.filter((m): m is string => typeof m === 'string' && objIds.has(m)),
+        }))
+    : undefined;
+
   return {
     id: p.id ?? createId('proj'),
     name: p.name ?? 'Untitled Show',
@@ -119,6 +131,7 @@ export function sanitizeProject(p: Project): Project {
     objects,
     lanes,
     events,
+    groups,
     settings: {
       duration: clampNum(p.settings?.duration, 90),
       bpm: p.settings?.bpm,
