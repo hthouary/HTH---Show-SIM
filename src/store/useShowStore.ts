@@ -211,11 +211,25 @@ interface ShowState {
   dismissToast: (id: string) => void;
 }
 
+/**
+ * An older saved copy of the bundled demo whose light cues all target "all"
+ * fixtures (the previous default). We refresh it to the current per-fixture demo
+ * so the lighting behaves as expected. Only the *unedited* stock demo matches:
+ * a renamed project, a user's own show, or a demo whose cues were retargeted all
+ * keep their saved data untouched.
+ */
+function isStaleStockDemo(p: Project): boolean {
+  if (p.name !== 'Demo Festival Intro') return false;
+  const lightCues = p.events.filter((e) => e.type.startsWith('light_') && e.type !== 'light_strobe');
+  if (lightCues.length === 0) return false;
+  return lightCues.every((e) => !e.targets || e.targets.length === 0);
+}
+
 function initialProject(): Project {
   const lastId = getLastProjectId();
   if (lastId) {
     const existing = loadProjectFromStorage(lastId);
-    if (existing) return existing;
+    if (existing) return isStaleStockDemo(existing) ? createDemoProject() : existing;
   }
   return createDemoProject();
 }
