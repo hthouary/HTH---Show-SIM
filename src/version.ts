@@ -4,4 +4,4 @@
  * top bar, so you can confirm the deployed build matches.
  */
 export const APP_VERSION = '0.17.1';
-export const APP_BUILD = 'lights-off-default';
+export const APP_BUILD = 'lights-window-only';

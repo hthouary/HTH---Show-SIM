@@ -179,7 +179,10 @@ export function evaluateEvents(events: ShowEvent[], t: number): ShowState {
         break;
       }
       case 'light_intensity': {
-        if (started) for (const tg of targets) ensureOverride(state, tg).intensity = num(ev.params, 'intensity', 1);
+        // Intensity is WINDOW-scoped: a light is only lit for the length of its
+        // clip and goes dark again after — it doesn't stay on once its action
+        // ends. (Colour still persists, but is only visible while lit.)
+        if (active) for (const tg of targets) ensureOverride(state, tg).intensity = num(ev.params, 'intensity', 1);
         break;
       }
       case 'laser_color': {

@@ -43,6 +43,20 @@ describe('evaluateEvents — state events persist', () => {
   });
 });
 
+describe('evaluateEvents — lights only lit during their action', () => {
+  it('is dark before, lit during, and dark again after an intensity clip', () => {
+    const events = [ev('light_intensity', 2, 2, { intensity: 1 }, ['spot1'])];
+    expect(lightForObject(evaluateEvents(events, 1), 'spot1').intensity).toBe(0);
+    expect(lightForObject(evaluateEvents(events, 3), 'spot1').intensity).toBe(1);
+    expect(lightForObject(evaluateEvents(events, 5), 'spot1').intensity).toBe(0);
+  });
+
+  it('a colour clip alone never lights a fixture (intensity stays 0)', () => {
+    const events = [ev('light_color', 0, 4, { color: '#ff0000' }, ['spot1'])];
+    expect(lightForObject(evaluateEvents(events, 2), 'spot1').intensity).toBe(0);
+  });
+});
+
 describe('evaluateEvents — window events only live inside their span', () => {
   it('strobe flags strobing only while active', () => {
     const events = [ev('light_strobe', 1, 2, { rate: 10 })];
