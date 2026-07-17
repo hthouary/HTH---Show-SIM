@@ -111,7 +111,7 @@ A switch in the top bar flips between the two ways you work on a show:
   object shows on-screen **Move / Rotate / Duplicate / Delete / Deselect**
   buttons, and Build mode shows a step-by-step hint — no shortcuts to memorise.
 - **3D viewport** — orbit / zoom / pan, a grey concrete ground to build on, ACES
-  tone-mapping and bloom; click to select, transform gizmo on the selection.
+  tone-mapping and bloom; click to select, transform gizmo on the selection, or just grab it and drag it across the floor.
 - **Sky & daylight** — a gradient sky with a sun that rises and sets: blue day
   with neutral daylight and **real sun shadows** (High quality), dark-blue night
   with **stars, a moon and cool moonlight** so the rig pops. A Sky panel offers

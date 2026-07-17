@@ -397,10 +397,14 @@ export function SceneViewport() {
         <OrbitControls
           makeDefault
           enableDamping
-          dampingFactor={0.08}
+          dampingFactor={0.15}
+          rotateSpeed={0.95}
+          zoomSpeed={1.2}
+          panSpeed={0.9}
+          zoomToCursor
           target={[0, 3, 0]}
           minDistance={5}
-          maxDistance={60}
+          maxDistance={80}
           maxPolarAngle={Math.PI / 2 - 0.02}
         />
         {bloom && (

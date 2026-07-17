@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
-import { type ThreeEvent } from '@react-three/fiber';
+import { useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { SceneObject as SceneObjectModel, Vec3 } from '../../types/show';
 import { useShowStore, isHighlighted } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE, isRiggable, isStructure } from '../../data/catalog';
+import { resolvePlacement } from '../../utils/collision';
 import { LightFixture } from './LightFixture';
 import { LaserFixture } from './LaserFixture';
 import { LedScreen } from './LedScreen';
@@ -94,6 +95,22 @@ function renderBody(object: SceneObjectModel) {
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
+// Shared scratch objects for the ground-drag math (single-threaded, so safe).
+const UP = new THREE.Vector3(0, 1, 0);
+const _ndc = new THREE.Vector2();
+const _plane = new THREE.Plane();
+const _hit = new THREE.Vector3();
+
+interface GroundDrag {
+  y: number;
+  offX: number;
+  offZ: number;
+  startX: number;
+  startZ: number;
+  moved: boolean;
+  multi: boolean;
+}
+
 /** Configure the white selection outline so it reads clearly (shows through). */
 function tuneHelper(h: THREE.Box3Helper | null) {
   if (!h) return;
@@ -121,6 +138,89 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
   const [node, setNode] = useState<THREE.Group | null>(null);
   const [box, setBox] = useState<THREE.Box3 | null>(null);
   const dragStart = useRef<THREE.Vector3 | null>(null);
+
+  // Camera / renderer for projecting the pointer onto the ground while dragging.
+  const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
+  const raycaster = useThree((s) => s.raycaster);
+  const controls = useThree((s) => s.controls) as { enabled: boolean } | null;
+  const ground = useRef<GroundDrag | null>(null);
+  const justDragged = useRef(false);
+
+  // Project a screen point onto the horizontal plane at height `y`.
+  const groundAt = useCallback(
+    (clientX: number, clientY: number, y: number): THREE.Vector3 | null => {
+      const rect = gl.domElement.getBoundingClientRect();
+      _ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(_ndc, camera);
+      _plane.set(UP, -y);
+      return raycaster.ray.intersectPlane(_plane, _hit) ? _hit : null;
+    },
+    [camera, gl, raycaster],
+  );
+
+  const onDragMove = useCallback(
+    (e: PointerEvent) => {
+      const d = ground.current;
+      if (!d || !node) return;
+      const g = groundAt(e.clientX, e.clientY, d.y);
+      if (!g) return;
+      const st = useShowStore.getState();
+      const desired: Vec3 = [g.x + d.offX, d.y, g.z + d.offZ];
+      const pos = resolvePlacement(st.project.objects, object.id, object.type, object.scale, desired, {
+        collisions: st.collisions,
+        gridSnap: st.gridSnap,
+        gridSize: st.gridSize,
+        magnet: st.magnet,
+      });
+      node.position.set(pos[0], pos[1], pos[2]);
+      d.moved = true;
+    },
+    [node, groundAt, object.id, object.type, object.scale],
+  );
+
+  const onDragUp = useCallback(() => {
+    window.removeEventListener('pointermove', onDragMove);
+    window.removeEventListener('pointerup', onDragUp);
+    if (controls) controls.enabled = true;
+    document.body.style.cursor = 'default';
+    const d = ground.current;
+    ground.current = null;
+    if (!d || !node || !d.moved) return;
+    justDragged.current = true; // suppress the click-select that follows
+    const p = node.position;
+    if (d.multi) nudgeSelection([p.x - d.startX, 0, p.z - d.startZ]);
+    else moveObject(object.id, [p.x, p.y, p.z]);
+  }, [onDragMove, controls, node, moveObject, nudgeSelection, object.id]);
+
+  // Grab the object body and drag it across the floor (fast, direct move).
+  // Selection stays on click (handleClick) so Shift-click isn't toggled twice;
+  // a drag moves this object by id regardless, and a group move applies when it
+  // is part of an existing multi-selection.
+  const onBodyPointerDown = useCallback(
+    (e: ThreeEvent<PointerEvent>) => {
+      if (placementType || e.button !== 0 || !node) return;
+      e.stopPropagation();
+      const y = object.position[1];
+      const g = groundAt(e.clientX, e.clientY, y);
+      if (!g) return;
+      const sel = useShowStore.getState().selectedObjectIds;
+      ground.current = {
+        y,
+        offX: object.position[0] - g.x,
+        offZ: object.position[2] - g.z,
+        startX: object.position[0],
+        startZ: object.position[2],
+        moved: false,
+        multi: sel.length > 1 && sel.includes(object.id),
+      };
+      if (controls) controls.enabled = false; // don't orbit while dragging an object
+      document.body.style.cursor = 'grabbing';
+      window.addEventListener('pointermove', onDragMove);
+      window.addEventListener('pointerup', onDragUp);
+    },
+    [placementType, node, object.id, object.position, groundAt, controls, onDragMove, onDragUp],
+  );
 
   // Solid bodies cast / receive the sun's shadows. Beams, flares and particles
   // are marked non-raycastable or use non-standard materials — skipped, so the
@@ -184,6 +284,11 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    // A drag just moved the object — don't also treat the release as a click.
+    if (justDragged.current) {
+      justDragged.current = false;
+      return;
+    }
     if (placementType) placeAt(e.point);
     else if (e.nativeEvent.shiftKey) toggleSelectObject(object.id);
     else selectObject(object.id);
@@ -199,12 +304,13 @@ export function SceneObject({ object }: { object: SceneObjectModel }) {
         rotation={object.rotation}
         scale={object.scale}
         onClick={handleClick}
+        onPointerDown={onBodyPointerDown}
         onPointerOver={(e) => {
           e.stopPropagation();
-          if (!placementType) document.body.style.cursor = 'pointer';
+          if (!placementType && !ground.current) document.body.style.cursor = 'grab';
         }}
         onPointerOut={() => {
-          if (!placementType) document.body.style.cursor = 'default';
+          if (!placementType && !ground.current) document.body.style.cursor = 'default';
         }}
       >
         {renderBody(object)}
