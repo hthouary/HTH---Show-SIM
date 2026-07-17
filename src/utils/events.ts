@@ -132,7 +132,10 @@ function defaultState(time: number): ShowState {
   return {
     time,
     blackout: 0,
-    light: { color: [1, 1, 1], intensity: 0.55, strobe: 1, strobing: false, move: { ...STILL } },
+    // Lights are OFF by default: a fixture only lights up when an event drives
+    // it (i.e. when it's "its turn" on the timeline). Anything the show isn't
+    // currently cueing stays dark.
+    light: { color: [1, 1, 1], intensity: 0, strobe: 1, strobing: false, move: { ...STILL } },
     overrides: {},
     laser: { active: false, color: [0.22, 1, 0.08], intensity: 1, move: { ...STILL } },
     laserOverrides: {},
