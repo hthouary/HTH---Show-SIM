@@ -137,8 +137,11 @@ export interface ShowEvent {
   /** Duration in seconds. */
   duration: number;
   type: ShowEventType;
-  /** Object ids this action applies to. Empty = all eligible objects. */
+  /** Object ids this action applies to. Empty (and no `groups`) = all eligible. */
   targets: string[];
+  /** Group ids this action is bound to — expanded to their live members each
+   *  frame, so editing a group updates every action bound to it. */
+  groups?: string[];
   params: Record<string, unknown>;
   /** Optional crossfade into the next block (or a smooth fade-out if alone). */
   transition?: EventTransition;

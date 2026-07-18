@@ -157,49 +157,50 @@ function TargetPicker({ event }: { event: ShowEvent }) {
 
   const eligible = eligibleObjects(category, objects);
   const eligibleIds = new Set(eligible.map((o) => o.id));
-  const isAll = event.targets.length === 0;
+  const boundGroups = event.groups ?? [];
+  const isAll = event.targets.length === 0 && boundGroups.length === 0;
   const setTargets = (targets: string[]) => update(event.id, { targets });
   const toggle = (id: string) =>
     setTargets(event.targets.includes(id) ? event.targets.filter((t) => t !== id) : [...event.targets, id]);
 
-  // Groups that hold at least one fixture this event can drive. Clicking one
-  // adds all its eligible members (or removes them when they're already all in).
-  const usableGroups = groups
-    .map((g) => ({ ...g, ids: g.members.filter((m) => eligibleIds.has(m)) }))
-    .filter((g) => g.ids.length > 0);
-  const toggleGroup = (ids: string[]) => {
-    const set = new Set(event.targets);
-    const allIn = ids.every((id) => set.has(id));
-    if (allIn) ids.forEach((id) => set.delete(id));
-    else ids.forEach((id) => set.add(id));
-    setTargets([...set]);
+  // Groups that hold at least one fixture this event can drive. Binding one links
+  // the action to the group: it always drives the group's current members.
+  const usableGroups = groups.filter((g) => g.members.some((m) => eligibleIds.has(m)));
+  const toggleGroup = (id: string) => {
+    const next = boundGroups.includes(id) ? boundGroups.filter((g) => g !== id) : [...boundGroups, id];
+    // Binding a group means "not all"; clear the implicit all-on-track state.
+    update(event.id, { groups: next });
   };
 
   return (
     <div>
       <div className="field-label">{tr('event.appliesTo')}</div>
       {usableGroups.length > 0 && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5">
-          {usableGroups.map((g) => {
-            const allIn = !isAll && g.ids.every((id) => event.targets.includes(id));
-            return (
-              <button
-                key={g.id}
-                onClick={() => toggleGroup(g.ids)}
-                title={tr('event.group')}
-                className={`chip flex items-center gap-1 ${allIn ? 'bg-amber-400/20 text-amber-200' : 'bg-ink-700 text-amber-200/70'}`}
-              >
-                <Icon name="box" size={11} />
-                <span className="max-w-[8rem] truncate">{g.name}</span>
-                <span className="opacity-60">{g.ids.length}</span>
-              </button>
-            );
-          })}
+        <div className="mb-1.5">
+          <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-amber-300/80">{tr('groups.title')}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {usableGroups.map((g) => {
+              const bound = boundGroups.includes(g.id);
+              const count = g.members.filter((m) => eligibleIds.has(m)).length;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => toggleGroup(g.id)}
+                  title={tr('event.group')}
+                  className={`chip flex items-center gap-1 ${bound ? 'bg-amber-400/25 text-amber-100 ring-1 ring-amber-300/50' : 'bg-ink-700 text-amber-200/70'}`}
+                >
+                  <Icon name="box" size={11} />
+                  <span className="max-w-[8rem] truncate">{g.name}</span>
+                  <span className="opacity-60">{count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
       <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-ink-700/70 bg-ink-850 p-2">
         <button
-          onClick={() => setTargets([])}
+          onClick={() => update(event.id, { targets: [], groups: [] })}
           className={`chip ${isAll ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-ink-700 text-slate-300'}`}
         >
           {tr('event.targetAll')}

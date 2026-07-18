@@ -4,7 +4,7 @@ import { ContactShadows, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { useShowStore } from '../../store/useShowStore';
 import { CATALOG_BY_TYPE } from '../../data/catalog';
-import { evaluateEvents } from '../../utils/events';
+import { evaluateEvents, withGroupTargets } from '../../utils/events';
 import { audioEngine } from '../../utils/audio';
 import { computeHype, hypeMeter } from '../../utils/hype';
 import { sfx } from '../../utils/sfx';
@@ -18,6 +18,7 @@ const round = (n: number) => Math.round(n * 10) / 10;
 export function StageScene() {
   const objects = useShowStore((s) => s.project.objects);
   const events = useShowStore((s) => s.project.events);
+  const groups = useShowStore((s) => s.project.groups);
   const liveEvents = useShowStore((s) => s.liveEvents);
   const placementType = useShowStore((s) => s.placementType);
   const addObjectAt = useShowStore((s) => s.addObjectAt);
@@ -45,7 +46,8 @@ export function StageScene() {
     const store = useShowStore.getState();
     const t = store.currentTime;
     // Live-pad triggers layer on top of the programmed timeline.
-    const all = liveEvents.length ? [...events, ...liveEvents] : events;
+    const merged = liveEvents.length ? [...events, ...liveEvents] : events;
+    const all = withGroupTargets(merged, groups ?? []);
     const state = evaluateEvents(all, t);
     showRef.current = state;
 

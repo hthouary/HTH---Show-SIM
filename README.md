@@ -160,9 +160,10 @@ A switch in the top bar flips between the two ways you work on a show:
   with the gizmo. `Ctrl/Cmd+D` duplicates.
 - **Fixture groups** — save any multi-selection as a named **group** (in the
   Scene panel), then re-select every member in one click — no more picking
-  lights one by one. Add an action with a group selected and it targets exactly
-  those fixtures, and an action's **“Applies to”** picker has a one-click chip per
-  group to add / remove all its fixtures at once.
+  lights one by one. An action's **“Applies to”** picker lists your groups: click
+  one to **bind the action to the group**, so it always drives the group's
+  *current* members — add or remove a fixture from the group later and every
+  action bound to it updates automatically.
 - **Action transitions** — toggle **Transition** on a light / laser clip and it
   **crossfades** into the next block on its lane instead of snapping: colour,
   brightness and beam movement all interpolate (e.g. an up-sweep glides into a

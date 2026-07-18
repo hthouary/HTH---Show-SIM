@@ -97,6 +97,25 @@ export interface ShowState {
   };
 }
 
+/**
+ * Expand each action's bound groups into their current member ids (merged into
+ * `targets`), so a group-bound cue always drives the group's live members. Runs
+ * before `evaluateEvents`; events with no group bindings pass through untouched.
+ */
+export function withGroupTargets(events: ShowEvent[], groups: { id: string; members: string[] }[]): ShowEvent[] {
+  if (!groups.length) return events;
+  const byId = new Map(groups.map((g) => [g.id, g.members]));
+  let changed = false;
+  const out = events.map((e) => {
+    if (!e.groups || e.groups.length === 0) return e;
+    const extra = e.groups.flatMap((gid) => byId.get(gid) ?? []);
+    if (extra.length === 0) return e;
+    changed = true;
+    return { ...e, targets: [...new Set([...e.targets, ...extra])] };
+  });
+  return changed ? out : events;
+}
+
 export function hexToRgb(hex: string): RGB {
   const clean = hex.replace('#', '');
   const v =

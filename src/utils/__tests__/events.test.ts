@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ShowEvent, ShowEventType } from '../../types/show';
-import { evaluateEvents, hexToRgb, laserOnForObject, lightForObject } from '../events';
+import { evaluateEvents, hexToRgb, laserOnForObject, lightForObject, withGroupTargets } from '../events';
 
 let n = 0;
 function ev(type: ShowEventType, time: number, duration: number, params: Record<string, unknown> = {}, targets: string[] = []): ShowEvent {
@@ -15,6 +15,29 @@ describe('hexToRgb', () => {
   });
   it('falls back to white on garbage', () => {
     expect(hexToRgb('#zzz')).toEqual([1, 1, 1]);
+  });
+});
+
+describe('withGroupTargets — group bindings expand to live members', () => {
+  it('merges a bound group\'s members into targets', () => {
+    const e = { ...ev('light_intensity', 0, 4, { intensity: 1 }, ['s1']), groups: ['g1'] };
+    const out = withGroupTargets([e], [{ id: 'g1', members: ['s2', 's3'] }]);
+    expect(new Set(out[0].targets)).toEqual(new Set(['s1', 's2', 's3']));
+    // and the merged set actually lights those fixtures
+    const s = evaluateEvents(out, 2);
+    expect(lightForObject(s, 's2').intensity).toBe(1);
+    expect(lightForObject(s, 's3').intensity).toBe(1);
+    expect(lightForObject(s, 's9').intensity).toBe(0);
+  });
+
+  it('leaves ungrouped events untouched and reflects group edits', () => {
+    const e = { ...ev('light_intensity', 0, 4, { intensity: 1 }, []), groups: ['g1'] };
+    expect(withGroupTargets([e], [{ id: 'g1', members: ['a'] }])[0].targets).toEqual(['a']);
+    // editing the group changes what the same action drives
+    expect(withGroupTargets([e], [{ id: 'g1', members: ['b', 'c'] }])[0].targets).toEqual(['b', 'c']);
+    // an event with no binding is returned as-is
+    const plain = ev('light_color', 0, 1);
+    expect(withGroupTargets([plain], [{ id: 'g1', members: ['a'] }])[0]).toBe(plain);
   });
 });
 

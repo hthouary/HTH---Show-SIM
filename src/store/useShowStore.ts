@@ -841,7 +841,15 @@ export const useShowStore = create<ShowState>((set, get) => {
     deleteGroup: (id) => {
       record('delete-group');
       set((s) => ({
-        project: { ...s.project, groups: (s.project.groups ?? []).filter((g) => g.id !== id), updatedAt: Date.now() },
+        project: {
+          ...s.project,
+          groups: (s.project.groups ?? []).filter((g) => g.id !== id),
+          // Unbind the group from any action that referenced it.
+          events: s.project.events.map((e) =>
+            e.groups?.includes(id) ? { ...e, groups: e.groups.filter((g) => g !== id) } : e,
+          ),
+          updatedAt: Date.now(),
+        },
       }));
     },
 
