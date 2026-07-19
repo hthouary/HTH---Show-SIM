@@ -95,18 +95,21 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       object.target[2] - object.position[2],
     );
     const dist = Math.max(rel.length(), 10);
-    // Long throw — beams travel far and dissolve into the air (shader fade).
-    const len = THREE.MathUtils.clamp(dist * 4, 90, 260);
+    // Very long throw — beams read as near-infinite, razor-thin rays that only
+    // dissolve into the atmosphere at the far end (shader length-fade).
+    const len = THREE.MathUtils.clamp(dist * 12, 500, 1000);
     const dir = rel.clone().normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(UP_DOWN, dir);
 
-    const core = beamCyl(0.014, 0.03, len, 6);
-    const glow = beamCyl(0.05, 0.12, len, 8);
+    // Thin core + tight halo, held to a near-constant width down the whole run
+    // so the ray stays crisp far away instead of fanning out into a cone.
+    const core = beamCyl(0.007, 0.011, len, 6);
+    const glow = beamCyl(0.022, 0.04, len, 8);
 
     // Unit-length beams (0 → -1 along Y) for the custom chain, scaled per beam
     // so each tip lands exactly on the drawn point (variable throw).
-    const coreU = beamCyl(0.02, 0.02, 1, 6);
-    const glowU = beamCyl(0.08, 0.08, 1, 8);
+    const coreU = beamCyl(0.01, 0.01, 1, 6);
+    const glowU = beamCyl(0.04, 0.04, 1, 8);
 
     const dot = new THREE.MeshBasicMaterial({
       color: '#39ff14',
@@ -122,8 +125,8 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       glowGeo: glow,
       coreUnit: coreU,
       glowUnit: glowU,
-      coreMat: makeBeamMat(1.1), // thin core fades slowly → travels far
-      glowMat: makeBeamMat(1.8), // halo scatters close, fades faster
+      coreMat: makeBeamMat(0.5), // razor core barely fades → carries very far
+      glowMat: makeBeamMat(1.1), // halo scatters closer, fades a touch faster
       dotMat: dot,
     };
   }, [object.position, object.target]);

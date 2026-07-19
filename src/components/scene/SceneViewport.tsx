@@ -397,7 +397,7 @@ export function SceneViewport() {
         shadows
         dpr={[1, 2]}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
-        camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 1200 }}
+        camera={{ position: [12, 8, 15], fov: 42, near: 0.1, far: 1600 }}
       >
         <Suspense fallback={null}>
           <StageScene />
