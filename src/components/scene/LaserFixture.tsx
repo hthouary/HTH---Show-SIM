@@ -15,6 +15,7 @@ const tmpVec = new THREE.Vector3();
 const dummy = new THREE.Object3D();
 const BEAM_COUNT = 12;
 const MAX_CHAIN = 500; // custom laser chain cap
+const CHAIN_LEN = 1000; // how far each custom-chain beam shoots (near-infinite)
 
 /**
  * A laser beam cylinder (0 at the source → -length far away) carrying a per-vertex
@@ -196,15 +197,16 @@ export function LaserFixture({ object }: { object: SceneObject }) {
       dummy.rotation.set(0, 0, 0);
       for (let i = 0; i < count; i++) {
         const p = laserChainPhase(local, lm.speed, lm.spacing ?? 3, i);
-        // Point the beam from the head to the drawn point; its tip lands there,
-        // so the chain of tips traces the drawing like a pencil.
+        // Aim each beam through its drawn point, then shoot far past it so the
+        // ray reads as near-infinite (like the preset fans) while the chain of
+        // directions still traces the drawing in the haze.
         const pt = laserChainPoint(lm.path, dir, p);
         tmpVec.set(pt[0], pt[1], pt[2]);
         const len = Math.max(0.001, tmpVec.length());
         tmpDir.copy(tmpVec).multiplyScalar(1 / len);
         dummy.position.set(0, 0, 0);
         dummy.quaternion.setFromUnitVectors(UP_DOWN, tmpDir);
-        dummy.scale.set(1, len, 1);
+        dummy.scale.set(1, CHAIN_LEN, 1);
         dummy.updateMatrix();
         coreInst.current.setMatrixAt(i, dummy.matrix);
         glowInst.current.setMatrixAt(i, dummy.matrix);
